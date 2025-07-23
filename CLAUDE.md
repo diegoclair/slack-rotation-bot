@@ -99,3 +99,28 @@ slack-rotation-bot/
 - `robfig/cron/v3`: Cron scheduler for daily notifications  
 - `mattn/go-sqlite3`: SQLite driver (requires CGO)
 - `joho/godotenv`: Environment file loading
+
+## TODO: Critical Issues
+
+### Timezone Management
+**CRITICAL**: Timezone handling is currently broken and needs immediate attention.
+
+**Current Problems:**
+- `.env.example` has `TZ=America/Sao_Paulo` but it's not used in code
+- All `time.Now()` calls use server timezone, not user timezone
+- Users expect notifications at their local time (e.g., 9:00 AM Brazil) but may get server time
+- Poor user experience: bot configured for 09:00 may notify at wrong time
+
+**Impact:** Users will receive notifications at incorrect times, breaking the core functionality.
+
+**Solutions to implement:**
+1. **Per-channel timezone**: Add timezone field to Channel model
+2. **Parse user timezone**: Use Slack API to get user's timezone 
+3. **Proper time handling**: Convert all time operations to use channel timezone
+4. **Scheduler fixes**: Ensure cron jobs respect timezone when sending notifications
+
+**Files to modify:**
+- `pkg/models/models.go`: Add timezone field to Channel
+- `internal/rotation/service.go`: Update time handling logic
+- `internal/scheduler/scheduler.go`: Implement timezone-aware cron jobs
+- `migrator/sqlite/sql/`: Add migration for timezone column

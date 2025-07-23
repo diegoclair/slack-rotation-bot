@@ -11,38 +11,34 @@ Bot para gerenciar rotação de apresentadores da daily em diferentes times/cana
 
 ## Comandos Slack
 
-### Setup Inicial
-```
-/daily setup
-```
-Configura o bot para o canal atual.
+> **Nota**: O bot se configura automaticamente no primeiro uso. Não é necessário comando de setup inicial.
 
 ### Gerenciar Membros
-```
-/daily add @usuario
-/daily remove @usuario
-/daily list
+```bash
+/daily add @usuario      # Adiciona um membro à rotação de apresentadores
+/daily remove @usuario   # Remove um membro da rotação de apresentadores  
+/daily list              # Lista todos os membros ativos na rotação
 ```
 
 ### Configurações
-```
-/daily config time 09:30
-/daily config days seg,ter,qui,sex
-/daily config show
+```bash
+/daily config time 09:30                    # Define horário da notificação diária
+/daily config days seg,ter,qui,sex          # Define quais dias da semana são ativos
+/daily config show                          # Exibe as configurações atuais do canal
 ```
 
 ### Rotação
-```
-/daily next              # Pula para próximo apresentador
-/daily who               # Mostra quem apresenta hoje
-/daily history           # Mostra histórico recente
+```bash
+/daily next              # Força avançar para o próximo apresentador
+/daily history           # Mostra o histórico recente de apresentações
 ```
 
-### Controle
-```
-/daily pause             # Pausa notificações
-/daily resume            # Retoma notificações
-/daily status            # Status do canal
+### Controle e Monitoramento
+```bash
+/daily pause             # Pausa as notificações automáticas temporariamente
+/daily resume            # Reativa as notificações automáticas
+/daily status            # Exibe status geral: configurações, membros e próximo apresentador
+/daily help              # Mostra todos os comandos disponíveis
 ```
 
 ## Arquitetura

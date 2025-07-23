@@ -8,13 +8,11 @@ import (
 type CommandType string
 
 const (
-	CmdSetup      CommandType = "setup"
 	CmdAdd        CommandType = "add"
 	CmdRemove     CommandType = "remove"
 	CmdList       CommandType = "list"
 	CmdConfig     CommandType = "config"
 	CmdNext       CommandType = "next"
-	CmdWho        CommandType = "who"
 	CmdHistory    CommandType = "history"
 	CmdPause      CommandType = "pause"
 	CmdResume     CommandType = "resume"
@@ -39,8 +37,6 @@ func ParseCommand(text string) (*Command, error) {
 	}
 
 	switch parts[0] {
-	case "setup":
-		cmd.Type = CmdSetup
 	case "add":
 		cmd.Type = CmdAdd
 		if len(parts) > 1 {
@@ -60,8 +56,6 @@ func ParseCommand(text string) (*Command, error) {
 		}
 	case "next":
 		cmd.Type = CmdNext
-	case "who":
-		cmd.Type = CmdWho
 	case "history":
 		cmd.Type = CmdHistory
 	case "pause":
@@ -82,24 +76,22 @@ func ParseCommand(text string) (*Command, error) {
 func GetHelpText() string {
 	return `*Comandos disponíveis:*
 
-*Setup e Configuração:*
-• \`/daily setup\` - Configura o bot para este canal
-• \`/daily config time HH:MM\` - Define horário da notificação (ex: 09:30)
-• \`/daily config days seg,ter,qui,sex\` - Define dias ativos
-• \`/daily config show\` - Mostra configurações atuais
+*Configuração:*
+• ` + "`/daily config time HH:MM`" + ` - Define horário da notificação (ex: 09:30)
+• ` + "`/daily config days seg,ter,qui,sex`" + ` - Define dias ativos
+• ` + "`/daily config show`" + ` - Mostra configurações atuais
 
 *Gerenciar Membros:*
-• \`/daily add @usuario\` - Adiciona membro à rotação
-• \`/daily remove @usuario\` - Remove membro da rotação
-• \`/daily list\` - Lista todos os membros
+• ` + "`/daily add @usuario`" + ` - Adiciona membro à rotação
+• ` + "`/daily remove @usuario`" + ` - Remove membro da rotação
+• ` + "`/daily list`" + ` - Lista todos os membros
 
 *Rotação:*
-• \`/daily who\` - Mostra quem apresenta hoje
-• \`/daily next\` - Pula para próximo apresentador
-• \`/daily history\` - Mostra histórico recente
+• ` + "`/daily next`" + ` - Pula para próximo apresentador
+• ` + "`/daily history`" + ` - Mostra histórico recente
 
 *Controle:*
-• \`/daily pause\` - Pausa notificações automáticas
-• \`/daily resume\` - Retoma notificações automáticas
-• \`/daily status\` - Mostra status do bot neste canal`
+• ` + "`/daily pause`" + ` - Pausa notificações automáticas
+• ` + "`/daily resume`" + ` - Retoma notificações automáticas
+• ` + "`/daily status`" + ` - Mostra status do bot neste canal`
 }

@@ -76,8 +76,6 @@ func (h *SlackHandler) HandleSlashCommand(w http.ResponseWriter, r *http.Request
 
 func (h *SlackHandler) handleCommand(cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	switch cmd.Type {
-	case slackcmd.CmdSetup:
-		return h.handleSetup(slashCmd)
 	case slackcmd.CmdAdd:
 		return h.handleAddUser(cmd, slashCmd)
 	case slackcmd.CmdRemove:
@@ -88,8 +86,6 @@ func (h *SlackHandler) handleCommand(cmd *slackcmd.Command, slashCmd *slack.Slas
 		return h.handleConfig(cmd, slashCmd)
 	case slackcmd.CmdNext:
 		return h.handleNext(slashCmd)
-	case slackcmd.CmdWho:
-		return h.handleWho(slashCmd)
 	case slackcmd.CmdHistory:
 		return h.handleHistory(slashCmd)
 	case slackcmd.CmdPause:
@@ -105,21 +101,6 @@ func (h *SlackHandler) handleCommand(cmd *slackcmd.Command, slashCmd *slack.Slas
 	}
 }
 
-func (h *SlackHandler) handleSetup(slashCmd *slack.SlashCommand) *slack.Msg {
-	channel, err := h.rotationService.SetupChannel(
-		slashCmd.ChannelID,
-		slashCmd.ChannelName,
-		slashCmd.TeamID,
-	)
-	if err != nil {
-		return h.createErrorResponse(fmt.Sprintf("Erro ao configurar canal: %v", err))
-	}
-
-	return &slack.Msg{
-		ResponseType: slack.ResponseTypeInChannel,
-		Text:         fmt.Sprintf("✅ Bot configurado para o canal #%s!\n\nUse `/daily add @usuario` para adicionar membros à rotação.", channel.SlackChannelName),
-	}
-}
 
 func (h *SlackHandler) handleAddUser(cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
@@ -200,7 +181,7 @@ func (h *SlackHandler) handleListUsers(slashCmd *slack.SlashCommand) *slack.Msg 
 	var userList strings.Builder
 	userList.WriteString("*Membros na rotação:*\n")
 	for i, user := range users {
-		userList.WriteString(fmt.Sprintf("%d. <@%s>\n", i+1, user.SlackUserID))
+		userList.WriteString(fmt.Sprintf("%d. %s\n", i+1, user.DisplayName))
 	}
 
 	return &slack.Msg{
@@ -209,42 +190,6 @@ func (h *SlackHandler) handleListUsers(slashCmd *slack.SlashCommand) *slack.Msg 
 	}
 }
 
-func (h *SlackHandler) handleWho(slashCmd *slack.SlashCommand) *slack.Msg {
-	// Get channel
-	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
-	if err != nil {
-		return h.createErrorResponse("Erro ao verificar canal")
-	}
-
-	// Check today's presenter
-	user, rotation, err := h.rotationService.GetTodaysPresenter(channel.ID)
-	if err != nil {
-		return h.createErrorResponse("Erro ao verificar apresentador de hoje")
-	}
-
-	if rotation != nil && user != nil {
-		return &slack.Msg{
-			ResponseType: slack.ResponseTypeInChannel,
-			Text:         fmt.Sprintf("📅 O apresentador de hoje é <@%s>", user.SlackUserID),
-		}
-	}
-
-	// Get next presenter
-	nextUser, err := h.rotationService.GetNextPresenter(channel.ID)
-	if err != nil {
-		return h.createErrorResponse(fmt.Sprintf("Erro ao determinar próximo apresentador: %v", err))
-	}
-
-	// Record as today's presenter
-	if err := h.rotationService.RecordPresentation(channel.ID, nextUser.ID, true, ""); err != nil {
-		return h.createErrorResponse("Erro ao registrar apresentador")
-	}
-
-	return &slack.Msg{
-		ResponseType: slack.ResponseTypeInChannel,
-		Text:         fmt.Sprintf("📅 O apresentador de hoje é <@%s>", nextUser.SlackUserID),
-	}
-}
 
 func (h *SlackHandler) handleNext(slashCmd *slack.SlashCommand) *slack.Msg {
 	// Get channel

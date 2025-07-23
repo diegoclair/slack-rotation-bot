@@ -25,6 +25,11 @@ func (s *Scheduler) Start() {
 	// 2. Check if today is an active day for each channel
 	// 3. Send notification at configured time
 	// 4. Record the presenter for the day
+	//
+	// CRITICAL TODO: Fix timezone handling before implementing
+	// - Currently using server timezone, need per-channel timezone
+	// - Must convert notification times to proper timezone
+	// - See CLAUDE.md for detailed timezone fix requirements
 }
 
 func (s *Scheduler) Stop() {

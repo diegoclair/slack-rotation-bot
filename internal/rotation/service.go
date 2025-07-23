@@ -168,6 +168,8 @@ func (s *Service) RecordPresentation(channelID, userID int, wasPresenter bool, s
 }
 
 func (s *Service) GetTodaysPresenter(channelID int) (*models.User, *models.Rotation, error) {
+	// TODO CRITICAL: Fix timezone handling - currently using server timezone
+	// Should use channel-specific timezone for proper "today" calculation
 	today := time.Now()
 	rotation, err := s.rotationRepo.GetTodaysPresenter(channelID, today)
 	if err != nil {
