@@ -1,0 +1,138 @@
+package database
+
+import (
+	"database/sql"
+	"fmt"
+	"time"
+
+	"github.com/diegoclair/slack-rotation-bot/pkg/models"
+)
+
+type ChannelRepository struct {
+	db *DB
+}
+
+func NewChannelRepository(db *DB) *ChannelRepository {
+	return &ChannelRepository{db: db}
+}
+
+func (r *ChannelRepository) Create(channel *models.Channel) error {
+	query := `
+		INSERT INTO channels (slack_channel_id, slack_channel_name, slack_team_id, 
+			notification_time, active_days, is_active)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`
+	
+	result, err := r.db.conn.Exec(query, 
+		channel.SlackChannelID,
+		channel.SlackChannelName,
+		channel.SlackTeamID,
+		channel.NotificationTime,
+		channel.ActiveDays,
+		channel.IsActive,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create channel: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("failed to get last insert id: %w", err)
+	}
+
+	channel.ID = int(id)
+	return nil
+}
+
+func (r *ChannelRepository) GetBySlackID(slackChannelID string) (*models.Channel, error) {
+	channel := &models.Channel{}
+	query := `
+		SELECT id, slack_channel_id, slack_channel_name, slack_team_id,
+			notification_time, active_days, is_active, created_at, updated_at
+		FROM channels
+		WHERE slack_channel_id = ?
+	`
+
+	err := r.db.conn.QueryRow(query, slackChannelID).Scan(
+		&channel.ID,
+		&channel.SlackChannelID,
+		&channel.SlackChannelName,
+		&channel.SlackTeamID,
+		&channel.NotificationTime,
+		&channel.ActiveDays,
+		&channel.IsActive,
+		&channel.CreatedAt,
+		&channel.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get channel: %w", err)
+	}
+
+	return channel, nil
+}
+
+func (r *ChannelRepository) Update(channel *models.Channel) error {
+	query := `
+		UPDATE channels SET
+			slack_channel_name = ?,
+			notification_time = ?,
+			active_days = ?,
+			is_active = ?,
+			updated_at = ?
+		WHERE id = ?
+	`
+
+	_, err := r.db.conn.Exec(query,
+		channel.SlackChannelName,
+		channel.NotificationTime,
+		channel.ActiveDays,
+		channel.IsActive,
+		time.Now(),
+		channel.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update channel: %w", err)
+	}
+
+	return nil
+}
+
+func (r *ChannelRepository) GetActiveChannels() ([]*models.Channel, error) {
+	query := `
+		SELECT id, slack_channel_id, slack_channel_name, slack_team_id,
+			notification_time, active_days, is_active, created_at, updated_at
+		FROM channels
+		WHERE is_active = 1
+	`
+
+	rows, err := r.db.conn.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get active channels: %w", err)
+	}
+	defer rows.Close()
+
+	var channels []*models.Channel
+	for rows.Next() {
+		channel := &models.Channel{}
+		err := rows.Scan(
+			&channel.ID,
+			&channel.SlackChannelID,
+			&channel.SlackChannelName,
+			&channel.SlackTeamID,
+			&channel.NotificationTime,
+			&channel.ActiveDays,
+			&channel.IsActive,
+			&channel.CreatedAt,
+			&channel.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan channel: %w", err)
+		}
+		channels = append(channels, channel)
+	}
+
+	return channels, nil
+}
