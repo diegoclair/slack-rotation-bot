@@ -31,7 +31,6 @@ Bot para gerenciar rotação de pessoas em diferentes times/canais do Slack. Út
 ### Rotação
 ```bash
 /rotation next              # Força avançar para a próxima pessoa
-/rotation history           # Mostra o histórico recente da rotação
 ```
 
 ### Controle e Monitoramento

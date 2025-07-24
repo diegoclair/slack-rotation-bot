@@ -3,6 +3,7 @@ package rotation
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -57,11 +58,17 @@ func (s *Service) SetupChannel(slackChannelID, slackChannelName, slackTeamID str
 }
 
 func (s *Service) AddUser(channelID int, slackUserID string) error {
+	log.Printf("DEBUG AddUser: channelID=%d, slackUserID=%s", channelID, slackUserID)
+	
 	// Get user info from Slack
 	userInfo, err := s.slackClient.GetUserInfo(slackUserID)
 	if err != nil {
+		log.Printf("ERROR getting user info from Slack API for %s: %v", slackUserID, err)
 		return fmt.Errorf("failed to get user info from Slack: %w", err)
 	}
+	
+	log.Printf("DEBUG: Got user info - Name: %s, DisplayName: %s, RealName: %s", 
+		userInfo.Name, userInfo.Profile.DisplayName, userInfo.Profile.RealName)
 
 	// Check if user already exists
 	existingUser, err := s.userRepo.GetByChannelAndSlackID(channelID, slackUserID)
@@ -70,10 +77,6 @@ func (s *Service) AddUser(channelID int, slackUserID string) error {
 	}
 
 	if existingUser != nil {
-		if !existingUser.IsActive {
-			// Reactivate user
-			return s.userRepo.UpdateActiveStatus(existingUser.ID, true)
-		}
 		return fmt.Errorf("usuário já está na rotação")
 	}
 
@@ -107,7 +110,7 @@ func (s *Service) RemoveUser(channelID int, slackUserID string) error {
 		return fmt.Errorf("usuário não encontrado na rotação")
 	}
 
-	return s.userRepo.UpdateActiveStatus(user.ID, false)
+	return s.userRepo.Delete(user.ID)
 }
 
 func (s *Service) ListUsers(channelID int) ([]*models.User, error) {
@@ -269,3 +272,5 @@ func (s *Service) GetChannelStatus(channelID int) (*models.Channel, error) {
 	// For now, returning error
 	return nil, fmt.Errorf("not implemented")
 }
+
+

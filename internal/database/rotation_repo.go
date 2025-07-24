@@ -100,40 +100,6 @@ func (r *RotationRepository) GetTodaysPresenter(channelID int, date time.Time) (
 	return rotation, nil
 }
 
-func (r *RotationRepository) GetHistory(channelID int, limit int) ([]*models.Rotation, error) {
-	query := `
-		SELECT id, channel_id, user_id, presented_at, was_presenter, skipped_reason
-		FROM rotations
-		WHERE channel_id = ?
-		ORDER BY presented_at DESC, id DESC
-		LIMIT ?
-	`
-
-	rows, err := r.db.conn.Query(query, channelID, limit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rotation history: %w", err)
-	}
-	defer rows.Close()
-
-	var rotations []*models.Rotation
-	for rows.Next() {
-		rotation := &models.Rotation{}
-		err := rows.Scan(
-			&rotation.ID,
-			&rotation.ChannelID,
-			&rotation.UserID,
-			&rotation.PresentedAt,
-			&rotation.WasPresenter,
-			&rotation.SkippedReason,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan rotation: %w", err)
-		}
-		rotations = append(rotations, rotation)
-	}
-
-	return rotations, nil
-}
 
 func (r *RotationRepository) GetUserLastPresentation(userID int) (*models.Rotation, error) {
 	rotation := &models.Rotation{}
@@ -162,3 +128,4 @@ func (r *RotationRepository) GetUserLastPresentation(userID int) (*models.Rotati
 
 	return rotation, nil
 }
+

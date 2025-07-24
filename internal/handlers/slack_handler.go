@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -31,6 +32,7 @@ func (h *SlackHandler) HandleSlashCommand(w http.ResponseWriter, r *http.Request
 	// Verify request from Slack
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		log.Printf("ERROR reading body: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -39,16 +41,19 @@ func (h *SlackHandler) HandleSlashCommand(w http.ResponseWriter, r *http.Request
 	// Verify Slack signature
 	verifier, err := slack.NewSecretsVerifier(r.Header, h.signingSecret)
 	if err != nil {
+		log.Printf("ERROR creating verifier: %v", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
 	if _, err := verifier.Write(body); err != nil {
+		log.Printf("ERROR writing to verifier: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	if err := verifier.Ensure(); err != nil {
+		log.Printf("ERROR verifying signature: %v", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -56,9 +61,13 @@ func (h *SlackHandler) HandleSlashCommand(w http.ResponseWriter, r *http.Request
 	// Parse command
 	s, err := slack.SlashCommandParse(r)
 	if err != nil {
+		log.Printf("ERROR parsing command: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	
+	log.Printf("Received command: %s %s from user: %s in channel: %s", s.Command, s.Text, s.UserID, s.ChannelID)
+	log.Printf("DEBUG Slash Command data - TeamID: %s, ResponseURL: %s, TriggerID: %s", s.TeamID, s.ResponseURL, s.TriggerID)
 
 	// Parse our command
 	cmd, err := slackcmd.ParseCommand(s.Text)
@@ -86,8 +95,6 @@ func (h *SlackHandler) handleCommand(cmd *slackcmd.Command, slashCmd *slack.Slas
 		return h.handleConfig(cmd, slashCmd)
 	case slackcmd.CmdNext:
 		return h.handleNext(slashCmd)
-	case slackcmd.CmdHistory:
-		return h.handleHistory(slashCmd)
 	case slackcmd.CmdPause:
 		return h.handlePause(slashCmd)
 	case slackcmd.CmdResume:
@@ -107,39 +114,70 @@ func (h *SlackHandler) handleAddUser(cmd *slackcmd.Command, slashCmd *slack.Slas
 		return h.createErrorResponse("Por favor, mencione o usuário: `/daily add @usuario`")
 	}
 
-	// Extract user ID from mention <@U12345>
+	// Extract user ID from mention <@U12345> or <@U12345|username>
 	userMention := cmd.Args[0]
+	log.Printf("DEBUG: Raw user mention: %s", userMention)
+	
 	userID := strings.TrimSpace(userMention)
 	userID = strings.TrimPrefix(userID, "<@")
 	userID = strings.TrimSuffix(userID, ">")
+	
+	// Handle format <@U12345|username> - take only the ID part
+	if idx := strings.Index(userID, "|"); idx != -1 {
+		userID = userID[:idx]
+	}
+	
+	log.Printf("DEBUG: Extracted user ID: %s", userID)
 
 	// Get channel
 	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
 	if err != nil {
+		log.Printf("ERROR setting up channel: %v", err)
 		return h.createErrorResponse("Erro ao verificar canal")
 	}
 
 	// Add user
 	if err := h.rotationService.AddUser(channel.ID, userID); err != nil {
+		log.Printf("ERROR adding user %s: %v", userID, err)
 		return h.createErrorResponse(fmt.Sprintf("Erro ao adicionar usuário: %v", err))
 	}
 
+	// Get user info for display name
+	userInfo, err := h.slackClient.GetUserInfo(userID)
+	userName := userID // fallback
+	if err == nil {
+		userName = userInfo.Profile.RealName
+		if userName == "" {
+			userName = userInfo.Profile.DisplayName
+		}
+		if userName == "" {
+			userName = userInfo.Name
+		}
+	}
+
+	responseText := fmt.Sprintf("✅ %s foi adicionado à rotação!", userName)
+
 	return &slack.Msg{
 		ResponseType: slack.ResponseTypeInChannel,
-		Text:         fmt.Sprintf("✅ <@%s> foi adicionado à rotação!", userID),
+		Text:         responseText,
 	}
 }
 
 func (h *SlackHandler) handleRemoveUser(cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
-		return h.createErrorResponse("Por favor, mencione o usuário: `/daily remove @usuario`")
+		return h.createErrorResponse("Por favor, mencione o usuário: `/rotation remove @usuario`")
 	}
 
-	// Extract user ID from mention
+	// Extract user ID from mention <@U12345> or <@U12345|username>
 	userMention := cmd.Args[0]
 	userID := strings.TrimSpace(userMention)
 	userID = strings.TrimPrefix(userID, "<@")
 	userID = strings.TrimSuffix(userID, ">")
+	
+	// Handle format <@U12345|username> - take only the ID part
+	if idx := strings.Index(userID, "|"); idx != -1 {
+		userID = userID[:idx]
+	}
 
 	// Get channel
 	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
@@ -152,9 +190,22 @@ func (h *SlackHandler) handleRemoveUser(cmd *slackcmd.Command, slashCmd *slack.S
 		return h.createErrorResponse(fmt.Sprintf("Erro ao remover usuário: %v", err))
 	}
 
+	// Get user info for display name
+	userInfo, err := h.slackClient.GetUserInfo(userID)
+	userName := userID // fallback
+	if err == nil {
+		userName = userInfo.Profile.RealName
+		if userName == "" {
+			userName = userInfo.Profile.DisplayName
+		}
+		if userName == "" {
+			userName = userInfo.Name
+		}
+	}
+
 	return &slack.Msg{
 		ResponseType: slack.ResponseTypeInChannel,
-		Text:         fmt.Sprintf("✅ <@%s> foi removido da rotação.", userID),
+		Text:         fmt.Sprintf("✅ %s foi removido da rotação.", userName),
 	}
 }
 
@@ -181,7 +232,7 @@ func (h *SlackHandler) handleListUsers(slashCmd *slack.SlashCommand) *slack.Msg 
 	var userList strings.Builder
 	userList.WriteString("*Membros na rotação:*\n")
 	for i, user := range users {
-		userList.WriteString(fmt.Sprintf("%d. %s\n", i+1, user.DisplayName))
+		userList.WriteString(fmt.Sprintf("%d. %s\n", i+1, user.GetDisplayName()))
 	}
 
 	return &slack.Msg{
@@ -261,10 +312,6 @@ func (h *SlackHandler) handleConfig(cmd *slackcmd.Command, slashCmd *slack.Slash
 	}
 }
 
-func (h *SlackHandler) handleHistory(slashCmd *slack.SlashCommand) *slack.Msg {
-	// TODO: Implement history
-	return h.createErrorResponse("Funcionalidade em desenvolvimento")
-}
 
 func (h *SlackHandler) handlePause(slashCmd *slack.SlashCommand) *slack.Msg {
 	// TODO: Implement pause
@@ -280,6 +327,7 @@ func (h *SlackHandler) handleStatus(slashCmd *slack.SlashCommand) *slack.Msg {
 	// TODO: Implement status
 	return h.createErrorResponse("Funcionalidade em desenvolvimento")
 }
+
 
 func (h *SlackHandler) handleHelp() *slack.Msg {
 	return &slack.Msg{

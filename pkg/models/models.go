@@ -24,6 +24,17 @@ type User struct {
 	JoinedAt       time.Time `json:"joined_at" db:"joined_at"`
 }
 
+// GetDisplayName returns the best available name for display
+func (u *User) GetDisplayName() string {
+	if u.DisplayName != "" {
+		return u.DisplayName
+	}
+	if u.SlackUserName != "" {
+		return u.SlackUserName
+	}
+	return "Unknown User"
+}
+
 type Rotation struct {
 	ID           int       `json:"id" db:"id"`
 	ChannelID    int       `json:"channel_id" db:"channel_id"`

@@ -73,7 +73,7 @@ func (r *UserRepository) GetActiveUsersByChannel(channelID int) ([]*models.User,
 		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, joined_at
 		FROM users
 		WHERE channel_id = ? AND is_active = 1
-		ORDER BY display_name ASC
+		ORDER BY joined_at ASC
 	`
 
 	rows, err := r.db.conn.Query(query, channelID)
@@ -103,16 +103,6 @@ func (r *UserRepository) GetActiveUsersByChannel(channelID int) ([]*models.User,
 	return users, nil
 }
 
-func (r *UserRepository) UpdateActiveStatus(userID int, isActive bool) error {
-	query := `UPDATE users SET is_active = ? WHERE id = ?`
-	
-	_, err := r.db.conn.Exec(query, isActive, userID)
-	if err != nil {
-		return fmt.Errorf("failed to update user status: %w", err)
-	}
-
-	return nil
-}
 
 func (r *UserRepository) Delete(userID int) error {
 	query := `DELETE FROM users WHERE id = ?`
@@ -124,3 +114,5 @@ func (r *UserRepository) Delete(userID int) error {
 
 	return nil
 }
+
+

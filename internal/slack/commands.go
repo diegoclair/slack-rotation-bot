@@ -13,7 +13,6 @@ const (
 	CmdList       CommandType = "list"
 	CmdConfig     CommandType = "config"
 	CmdNext       CommandType = "next"
-	CmdHistory    CommandType = "history"
 	CmdPause      CommandType = "pause"
 	CmdResume     CommandType = "resume"
 	CmdStatus     CommandType = "status"
@@ -56,8 +55,6 @@ func ParseCommand(text string) (*Command, error) {
 		}
 	case "next":
 		cmd.Type = CmdNext
-	case "history":
-		cmd.Type = CmdHistory
 	case "pause":
 		cmd.Type = CmdPause
 	case "resume":
@@ -88,7 +85,6 @@ func GetHelpText() string {
 
 *Rotação:*
 • ` + "`/rotation next`" + ` - Pula para próximo apresentador
-• ` + "`/rotation history`" + ` - Mostra histórico recente
 
 *Controle:*
 • ` + "`/rotation pause`" + ` - Pausa notificações automáticas
