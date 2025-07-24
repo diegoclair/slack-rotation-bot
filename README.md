@@ -73,59 +73,84 @@ go run cmd/bot/main.go
 
 ## Configuração no Slack
 
-### 1. Criar Slack App
-1. Acesse [api.slack.com](https://api.slack.com/apps)
-2. Clique em **"Create New App"** → **"From scratch"**
-3. Nome: `People Rotation Bot` (ou nome de sua preferência)
-4. Selecione seu workspace
+### Passo 1: Criar Slack App
+1. **Acesse**: [api.slack.com/apps](https://api.slack.com/apps)
+2. **Clique**: botão verde **"Create New App"**
+3. **Selecione**: **"From scratch"**
+4. **Preencha**:
+   - **App Name**: `People Rotation Bot` (ou nome de sua preferência)
+   - **Pick a workspace**: Selecione seu workspace do Slack
+5. **Clique**: **"Create App"**
 
-### 2. Configurar Bot Token Scopes
-1. Vá em **"OAuth & Permissions"** no menu lateral
-2. Em **"Scopes"** → **"Bot Token Scopes"**, adicione:
-   - `chat:write` - Enviar mensagens
-   - `commands` - Receber slash commands
-   - `channels:read` - Ler informações do canal
-   - `users:read` - Ler informações dos usuários
+### Passo 2: Configurar Permissões do Bot
+1. **No menu lateral esquerdo**, clique em **"OAuth & Permissions"**
+2. **Role até**: seção **"Scopes"**
+3. **Em "Bot Token Scopes"**, clique **"Add an OAuth Scope"** e adicione cada um:
+   - `chat:write` - Para enviar mensagens nos canais
+   - `commands` - Para receber slash commands  
+   - `channels:read` - Para ler informações dos canais
+   - `users:read` - Para ler informações dos usuários
 
-### 3. Configurar Slash Commands
-1. Vá em **"Slash Commands"** no menu lateral
-2. Clique **"Create New Command"**
-3. Configure:
+### Passo 3: Instalar Bot no Workspace
+1. **Ainda na página "OAuth & Permissions"**, role para o topo
+2. **Clique**: botão **"Install to Workspace"**
+3. **Autorize**: as permissões na tela que abrir
+4. **IMPORTANTE**: Após instalação, **copie o "Bot User OAuth Token"** 
+   - Começa com `xoxb-...`
+   - Você precisará dele no arquivo `.env`
+
+### Passo 4: Pegar Signing Secret
+1. **No menu lateral**, clique em **"Basic Information"**
+2. **Role até**: seção **"App Credentials"**
+3. **Clique**: **"Show"** ao lado de **"Signing Secret"**
+4. **Copie**: o secret (você precisará no arquivo `.env`)
+
+### Passo 5: Configurar Slash Command
+1. **No menu lateral**, clique em **"Slash Commands"**
+2. **Clique**: **"Create New Command"**
+3. **Preencha os campos**:
    - **Command**: `/rotation`
-   - **Request URL**: `https://seu-servidor.com/slack/commands`
+   - **Request URL**: `https://seu-servidor.com/slack/commands` 
+     - ⚠️ **Para desenvolvimento local**: Use ngrok (veja próximo passo)
    - **Short Description**: `Gerenciar rotação de pessoas no time`
    - **Usage Hint**: `add @usuario | list | config time 09:30`
+4. **Clique**: **"Save"**
 
-### 4. Instalar no Workspace
-1. Vá em **"OAuth & Permissions"**
-2. Clique **"Install to Workspace"** 
-3. Autorize as permissões
-4. **Copie o Bot User OAuth Token** (`xoxb-...`)
+### Passo 6: Configurar Webhook para Desenvolvimento Local
 
-### 5. Configurar Webhooks (Desenvolvimento)
-Para desenvolvimento local, use [ngrok](https://ngrok.com/):
+**6.1. Instalar ngrok:**
+- Baixe em: [ngrok.com/download](https://ngrok.com/download)
+- Ou via package manager: `brew install ngrok` (Mac) / `choco install ngrok` (Windows)
 
+**6.2. Executar aplicação e ngrok:**
 ```bash
-# Terminal 1: Rodar aplicação
+# Terminal 1: Rodar aplicação Go
 go run cmd/bot/main.go
 
-# Terminal 2: Expor localhost
+# Terminal 2: Expor localhost via ngrok  
 ngrok http 3000
-
-# Use a URL do ngrok nos Slash Commands
-# Exemplo: https://abc123.ngrok.io/slack/commands
 ```
 
-### 6. Configurar Variáveis de Ambiente
-No arquivo `.env`:
+**6.3. Atualizar URL no Slack:**
+1. **Copie** a URL do ngrok (ex: `https://abc123.ngrok.io`)
+2. **Volte** para **"Slash Commands"** no Slack App
+3. **Clique** no comando `/rotation` para editá-lo
+4. **Atualize Request URL** para: `https://abc123.ngrok.io/slack/commands`
+5. **Salve**
+
+### Passo 7: Configurar Variáveis de Ambiente
+
+**Crie arquivo `.env`** na raiz do projeto:
 ```bash
-SLACK_BOT_TOKEN=xoxb-sua-bot-token-aqui
+SLACK_BOT_TOKEN=xoxb-seu-token-aqui
 SLACK_SIGNING_SECRET=seu-signing-secret-aqui
 PORT=3000
 DATABASE_PATH=./rotation.db
 ```
 
-> **Onde encontrar Signing Secret**: Slack App → **"Basic Information"** → **"App Credentials"**
+**Substitua pelos valores reais:**
+- `SLACK_BOT_TOKEN`: Token copiado no Passo 3
+- `SLACK_SIGNING_SECRET`: Secret copiado no Passo 4
 
 ## Como Testar
 

@@ -249,27 +249,14 @@ func (h *SlackHandler) handleNext(slashCmd *slack.SlashCommand) *slack.Msg {
 		return h.createErrorResponse("Erro ao verificar canal")
 	}
 
-	// Get current presenter
-	currentUser, _, err := h.rotationService.GetTodaysPresenter(channel.ID)
-	if err != nil {
-		return h.createErrorResponse("Erro ao verificar apresentador atual")
-	}
-
 	// Get next presenter
 	nextUser, err := h.rotationService.GetNextPresenter(channel.ID)
 	if err != nil {
 		return h.createErrorResponse(fmt.Sprintf("Erro ao determinar próximo apresentador: %v", err))
 	}
 
-	// Mark current as skipped if exists
-	if currentUser != nil {
-		if err := h.rotationService.RecordPresentation(channel.ID, currentUser.ID, false, "Pulado manualmente"); err != nil {
-			return h.createErrorResponse("Erro ao registrar mudança")
-		}
-	}
-
 	// Record new presenter
-	if err := h.rotationService.RecordPresentation(channel.ID, nextUser.ID, true, ""); err != nil {
+	if err := h.rotationService.RecordPresentation(channel.ID, nextUser.ID); err != nil {
 		return h.createErrorResponse("Erro ao registrar novo apresentador")
 	}
 

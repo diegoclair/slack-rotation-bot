@@ -17,8 +17,8 @@ func NewUserRepository(db *DB) *UserRepository {
 
 func (r *UserRepository) Create(user *models.User) error {
 	query := `
-		INSERT INTO users (channel_id, slack_user_id, slack_user_name, display_name, is_active)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO users (channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter)
+		VALUES (?, ?, ?, ?, ?, ?)
 	`
 	
 	result, err := r.db.conn.Exec(query,
@@ -27,6 +27,7 @@ func (r *UserRepository) Create(user *models.User) error {
 		user.SlackUserName,
 		user.DisplayName,
 		user.IsActive,
+		user.LastPresenter,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
@@ -44,7 +45,7 @@ func (r *UserRepository) Create(user *models.User) error {
 func (r *UserRepository) GetByChannelAndSlackID(channelID int, slackUserID string) (*models.User, error) {
 	user := &models.User{}
 	query := `
-		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, joined_at
+		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter, joined_at
 		FROM users
 		WHERE channel_id = ? AND slack_user_id = ?
 	`
@@ -56,6 +57,7 @@ func (r *UserRepository) GetByChannelAndSlackID(channelID int, slackUserID strin
 		&user.SlackUserName,
 		&user.DisplayName,
 		&user.IsActive,
+		&user.LastPresenter,
 		&user.JoinedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -70,7 +72,7 @@ func (r *UserRepository) GetByChannelAndSlackID(channelID int, slackUserID strin
 
 func (r *UserRepository) GetActiveUsersByChannel(channelID int) ([]*models.User, error) {
 	query := `
-		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, joined_at
+		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter, joined_at
 		FROM users
 		WHERE channel_id = ? AND is_active = 1
 		ORDER BY joined_at ASC
@@ -92,6 +94,7 @@ func (r *UserRepository) GetActiveUsersByChannel(channelID int) ([]*models.User,
 			&user.SlackUserName,
 			&user.DisplayName,
 			&user.IsActive,
+			&user.LastPresenter,
 			&user.JoinedAt,
 		)
 		if err != nil {
@@ -113,6 +116,57 @@ func (r *UserRepository) Delete(userID int) error {
 	}
 
 	return nil
+}
+
+func (r *UserRepository) SetLastPresenter(channelID, userID int) error {
+	tx, err := r.db.conn.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Clear previous last_presenter
+	_, err = tx.Exec(`UPDATE users SET last_presenter = 0 WHERE channel_id = ?`, channelID)
+	if err != nil {
+		return fmt.Errorf("failed to clear last presenter: %w", err)
+	}
+
+	// Set new last_presenter
+	_, err = tx.Exec(`UPDATE users SET last_presenter = 1 WHERE id = ?`, userID)
+	if err != nil {
+		return fmt.Errorf("failed to set last presenter: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+func (r *UserRepository) GetLastPresenter(channelID int) (*models.User, error) {
+	user := &models.User{}
+	query := `
+		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter, joined_at
+		FROM users
+		WHERE channel_id = ? AND last_presenter = 1
+		LIMIT 1
+	`
+
+	err := r.db.conn.QueryRow(query, channelID).Scan(
+		&user.ID,
+		&user.ChannelID,
+		&user.SlackUserID,
+		&user.SlackUserName,
+		&user.DisplayName,
+		&user.IsActive,
+		&user.LastPresenter,
+		&user.JoinedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get last presenter: %w", err)
+	}
+
+	return user, nil
 }
 
 

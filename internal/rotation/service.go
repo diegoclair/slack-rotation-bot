@@ -14,18 +14,16 @@ import (
 )
 
 type Service struct {
-	channelRepo  *database.ChannelRepository
-	userRepo     *database.UserRepository
-	rotationRepo *database.RotationRepository
-	slackClient  *slack.Client
+	channelRepo *database.ChannelRepository
+	userRepo    *database.UserRepository
+	slackClient *slack.Client
 }
 
 func New(db *database.DB, slackClient *slack.Client) *Service {
 	return &Service{
-		channelRepo:  database.NewChannelRepository(db),
-		userRepo:     database.NewUserRepository(db),
-		rotationRepo: database.NewRotationRepository(db),
-		slackClient:  slackClient,
+		channelRepo: database.NewChannelRepository(db),
+		userRepo:    database.NewUserRepository(db),
+		slackClient: slackClient,
 	}
 }
 
@@ -59,15 +57,15 @@ func (s *Service) SetupChannel(slackChannelID, slackChannelName, slackTeamID str
 
 func (s *Service) AddUser(channelID int, slackUserID string) error {
 	log.Printf("DEBUG AddUser: channelID=%d, slackUserID=%s", channelID, slackUserID)
-	
+
 	// Get user info from Slack
 	userInfo, err := s.slackClient.GetUserInfo(slackUserID)
 	if err != nil {
 		log.Printf("ERROR getting user info from Slack API for %s: %v", slackUserID, err)
 		return fmt.Errorf("failed to get user info from Slack: %w", err)
 	}
-	
-	log.Printf("DEBUG: Got user info - Name: %s, DisplayName: %s, RealName: %s", 
+
+	log.Printf("DEBUG: Got user info - Name: %s, DisplayName: %s, RealName: %s",
 		userInfo.Name, userInfo.Profile.DisplayName, userInfo.Profile.RealName)
 
 	// Check if user already exists
@@ -118,7 +116,7 @@ func (s *Service) ListUsers(channelID int) ([]*models.User, error) {
 }
 
 func (s *Service) GetNextPresenter(channelID int) (*models.User, error) {
-	// Get all active users
+	// Get all active users ordered by joined_at (rotation order)
 	users, err := s.userRepo.GetActiveUsersByChannel(channelID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get users: %w", err)
@@ -129,20 +127,20 @@ func (s *Service) GetNextPresenter(channelID int) (*models.User, error) {
 	}
 
 	// Get last presenter
-	lastRotation, err := s.rotationRepo.GetLastPresenterByChannel(channelID)
+	lastPresenter, err := s.userRepo.GetLastPresenter(channelID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get last presenter: %w", err)
 	}
 
 	// If no one has presented yet, return first user
-	if lastRotation == nil {
+	if lastPresenter == nil {
 		return users[0], nil
 	}
 
-	// Find the index of last presenter
+	// Find the index of last presenter in the current rotation order
 	lastPresenterIndex := -1
 	for i, user := range users {
-		if user.ID == lastRotation.UserID {
+		if user.ID == lastPresenter.ID {
 			lastPresenterIndex = i
 			break
 		}
@@ -158,44 +156,12 @@ func (s *Service) GetNextPresenter(channelID int) (*models.User, error) {
 	return users[nextIndex], nil
 }
 
-func (s *Service) RecordPresentation(channelID, userID int, wasPresenter bool, skippedReason string) error {
-	rotation := &models.Rotation{
-		ChannelID:     channelID,
-		UserID:        userID,
-		PresentedAt:   time.Now(),
-		WasPresenter:  wasPresenter,
-		SkippedReason: skippedReason,
-	}
-
-	return s.rotationRepo.Create(rotation)
+func (s *Service) RecordPresentation(channelID, userID int) error {
+	return s.userRepo.SetLastPresenter(channelID, userID)
 }
 
-func (s *Service) GetTodaysPresenter(channelID int) (*models.User, *models.Rotation, error) {
-	// TODO CRITICAL: Fix timezone handling - currently using server timezone
-	// Should use channel-specific timezone for proper "today" calculation
-	today := time.Now()
-	rotation, err := s.rotationRepo.GetTodaysPresenter(channelID, today)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get today's rotation: %w", err)
-	}
-
-	if rotation == nil {
-		return nil, nil, nil
-	}
-
-	// Get user info
-	users, err := s.userRepo.GetActiveUsersByChannel(channelID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get users: %w", err)
-	}
-
-	for _, user := range users {
-		if user.ID == rotation.UserID {
-			return user, rotation, nil
-		}
-	}
-
-	return nil, rotation, nil
+func (s *Service) GetCurrentPresenter(channelID int) (*models.User, error) {
+	return s.userRepo.GetLastPresenter(channelID)
 }
 
 func (s *Service) UpdateChannelConfig(channelID int, configType, value string) error {
@@ -229,7 +195,7 @@ func (s *Service) UpdateChannelConfig(channelID int, configType, value string) e
 func parseDays(input string) []string {
 	dayMap := map[string]string{
 		"seg": "Monday",
-		"ter": "Tuesday", 
+		"ter": "Tuesday",
 		"qua": "Wednesday",
 		"qui": "Thursday",
 		"sex": "Friday",
@@ -239,7 +205,7 @@ func parseDays(input string) []string {
 
 	parts := strings.Split(strings.ToLower(input), ",")
 	var days []string
-	
+
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if day, ok := dayMap[part]; ok {
@@ -272,5 +238,3 @@ func (s *Service) GetChannelStatus(channelID int) (*models.Channel, error) {
 	// For now, returning error
 	return nil, fmt.Errorf("not implemented")
 }
-
-

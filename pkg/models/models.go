@@ -21,6 +21,7 @@ type User struct {
 	SlackUserName  string    `json:"slack_user_name" db:"slack_user_name"`
 	DisplayName    string    `json:"display_name" db:"display_name"`
 	IsActive       bool      `json:"is_active" db:"is_active"`
+	LastPresenter  bool      `json:"last_presenter" db:"last_presenter"`
 	JoinedAt       time.Time `json:"joined_at" db:"joined_at"`
 }
 
@@ -35,11 +36,3 @@ func (u *User) GetDisplayName() string {
 	return "Unknown User"
 }
 
-type Rotation struct {
-	ID           int       `json:"id" db:"id"`
-	ChannelID    int       `json:"channel_id" db:"channel_id"`
-	UserID       int       `json:"user_id" db:"user_id"`
-	PresentedAt  time.Time `json:"presented_at" db:"presented_at"`
-	WasPresenter bool      `json:"was_presenter" db:"was_presenter"`
-	SkippedReason string   `json:"skipped_reason,omitempty" db:"skipped_reason"`
-}
