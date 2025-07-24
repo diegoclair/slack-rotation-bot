@@ -36,8 +36,10 @@ Bot to manage people rotation in different Slack teams/channels. Useful for dail
 
 ### Rotation
 ```bash
-/rotation next              # Force advance to next person
+/rotation next              # Skip to next person in rotation
 ```
+
+> 💡 **When to use `/rotation next`**: Use this command when the current presenter is unavailable (vacation, sick leave, day off, meetings, etc.) to manually advance the rotation to the next person.
 
 ### Control and Monitoring
 ```bash
