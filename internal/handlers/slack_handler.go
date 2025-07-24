@@ -104,14 +104,14 @@ func (h *SlackHandler) handleCommand(cmd *slackcmd.Command, slashCmd *slack.Slas
 	case slackcmd.CmdHelp:
 		return h.handleHelp()
 	default:
-		return h.createErrorResponse("Comando não reconhecido")
+		return h.createErrorResponse("Unknown command")
 	}
 }
 
 
 func (h *SlackHandler) handleAddUser(cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
-		return h.createErrorResponse("Por favor, mencione o usuário: `/daily add @usuario`")
+		return h.createErrorResponse("Please mention the user: `/rotation add @user`")
 	}
 
 	// Extract user ID from mention <@U12345> or <@U12345|username>
@@ -133,13 +133,13 @@ func (h *SlackHandler) handleAddUser(cmd *slackcmd.Command, slashCmd *slack.Slas
 	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
 	if err != nil {
 		log.Printf("ERROR setting up channel: %v", err)
-		return h.createErrorResponse("Erro ao verificar canal")
+		return h.createErrorResponse("Error checking channel")
 	}
 
 	// Add user
 	if err := h.rotationService.AddUser(channel.ID, userID); err != nil {
 		log.Printf("ERROR adding user %s: %v", userID, err)
-		return h.createErrorResponse(fmt.Sprintf("Erro ao adicionar usuário: %v", err))
+		return h.createErrorResponse(fmt.Sprintf("Error adding user: %v", err))
 	}
 
 	// Get user info for display name
@@ -155,7 +155,7 @@ func (h *SlackHandler) handleAddUser(cmd *slackcmd.Command, slashCmd *slack.Slas
 		}
 	}
 
-	responseText := fmt.Sprintf("✅ %s foi adicionado à rotação!", userName)
+	responseText := fmt.Sprintf("✅ %s has been added to the rotation!", userName)
 
 	return &slack.Msg{
 		ResponseType: slack.ResponseTypeInChannel,
@@ -165,7 +165,7 @@ func (h *SlackHandler) handleAddUser(cmd *slackcmd.Command, slashCmd *slack.Slas
 
 func (h *SlackHandler) handleRemoveUser(cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
-		return h.createErrorResponse("Por favor, mencione o usuário: `/rotation remove @usuario`")
+		return h.createErrorResponse("Please mention the user: `/rotation remove @user`")
 	}
 
 	// Extract user ID from mention <@U12345> or <@U12345|username>
@@ -182,12 +182,12 @@ func (h *SlackHandler) handleRemoveUser(cmd *slackcmd.Command, slashCmd *slack.S
 	// Get channel
 	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
 	if err != nil {
-		return h.createErrorResponse("Erro ao verificar canal")
+		return h.createErrorResponse("Error checking channel")
 	}
 
 	// Remove user
 	if err := h.rotationService.RemoveUser(channel.ID, userID); err != nil {
-		return h.createErrorResponse(fmt.Sprintf("Erro ao remover usuário: %v", err))
+		return h.createErrorResponse(fmt.Sprintf("Error removing user: %v", err))
 	}
 
 	// Get user info for display name
@@ -205,7 +205,7 @@ func (h *SlackHandler) handleRemoveUser(cmd *slackcmd.Command, slashCmd *slack.S
 
 	return &slack.Msg{
 		ResponseType: slack.ResponseTypeInChannel,
-		Text:         fmt.Sprintf("✅ %s foi removido da rotação.", userName),
+		Text:         fmt.Sprintf("✅ %s has been removed from the rotation.", userName),
 	}
 }
 
@@ -213,24 +213,24 @@ func (h *SlackHandler) handleListUsers(slashCmd *slack.SlashCommand) *slack.Msg 
 	// Get channel
 	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
 	if err != nil {
-		return h.createErrorResponse("Erro ao verificar canal")
+		return h.createErrorResponse("Error checking channel")
 	}
 
 	// Get users
 	users, err := h.rotationService.ListUsers(channel.ID)
 	if err != nil {
-		return h.createErrorResponse("Erro ao listar usuários")
+		return h.createErrorResponse("Error listing users")
 	}
 
 	if len(users) == 0 {
 		return &slack.Msg{
 			ResponseType: slack.ResponseTypeEphemeral,
-			Text:         "Nenhum usuário na rotação. Use `/rotation add @usuario` para adicionar.",
+			Text:         "No users in rotation. Use `/rotation add @user` to add members.",
 		}
 	}
 
 	var userList strings.Builder
-	userList.WriteString("*Membros na rotação:*\n")
+	userList.WriteString("*Members in rotation:*\n")
 	for i, user := range users {
 		userList.WriteString(fmt.Sprintf("%d. %s\n", i+1, user.GetDisplayName()))
 	}
@@ -246,38 +246,38 @@ func (h *SlackHandler) handleNext(slashCmd *slack.SlashCommand) *slack.Msg {
 	// Get channel
 	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
 	if err != nil {
-		return h.createErrorResponse("Erro ao verificar canal")
+		return h.createErrorResponse("Error checking channel")
 	}
 
 	// Get next presenter
 	nextUser, err := h.rotationService.GetNextPresenter(channel.ID)
 	if err != nil {
-		return h.createErrorResponse(fmt.Sprintf("Erro ao determinar próximo apresentador: %v", err))
+		return h.createErrorResponse(fmt.Sprintf("Error determining next presenter: %v", err))
 	}
 
 	// Record new presenter
 	if err := h.rotationService.RecordPresentation(channel.ID, nextUser.ID); err != nil {
-		return h.createErrorResponse("Erro ao registrar novo apresentador")
+		return h.createErrorResponse("Error recording new presenter")
 	}
 
 	return &slack.Msg{
 		ResponseType: slack.ResponseTypeInChannel,
-		Text:         fmt.Sprintf("⏭️ Pulando para próximo apresentador: <@%s>", nextUser.SlackUserID),
+		Text:         fmt.Sprintf("⏭️ Skipping to next presenter: <@%s>", nextUser.SlackUserID),
 	}
 }
 
 func (h *SlackHandler) handleConfig(cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
-		return h.createErrorResponse("Use: `/daily config time HH:MM` ou `/daily config days seg,ter,qui,sex`")
+		return h.createErrorResponse("Use: `/rotation config time HH:MM` or `/rotation config days 1,2,4,5`")
 	}
 
 	if cmd.Args[0] == "show" {
 		// TODO: Show current config
-		return h.createErrorResponse("Funcionalidade em desenvolvimento")
+		return h.createErrorResponse("Feature under development")
 	}
 
 	if len(cmd.Args) < 2 {
-		return h.createErrorResponse("Formato inválido. Use: `/daily config time HH:MM` ou `/daily config days seg,ter,qui,sex`")
+		return h.createErrorResponse("Invalid format. Use: `/rotation config time HH:MM` or `/rotation config days 1,2,4,5`")
 	}
 
 	configType := cmd.Args[0]
@@ -286,33 +286,33 @@ func (h *SlackHandler) handleConfig(cmd *slackcmd.Command, slashCmd *slack.Slash
 	// Get channel
 	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
 	if err != nil {
-		return h.createErrorResponse("Erro ao verificar canal")
+		return h.createErrorResponse("Error checking channel")
 	}
 
 	if err := h.rotationService.UpdateChannelConfig(channel.ID, configType, configValue); err != nil {
-		return h.createErrorResponse(fmt.Sprintf("Erro ao atualizar configuração: %v", err))
+		return h.createErrorResponse(fmt.Sprintf("Error updating configuration: %v", err))
 	}
 
 	return &slack.Msg{
 		ResponseType: slack.ResponseTypeEphemeral,
-		Text:         fmt.Sprintf("✅ Configuração atualizada: %s = %s", configType, configValue),
+		Text:         fmt.Sprintf("✅ Configuration updated: %s = %s", configType, configValue),
 	}
 }
 
 
 func (h *SlackHandler) handlePause(slashCmd *slack.SlashCommand) *slack.Msg {
 	// TODO: Implement pause
-	return h.createErrorResponse("Funcionalidade em desenvolvimento")
+	return h.createErrorResponse("Feature under development")
 }
 
 func (h *SlackHandler) handleResume(slashCmd *slack.SlashCommand) *slack.Msg {
 	// TODO: Implement resume
-	return h.createErrorResponse("Funcionalidade em desenvolvimento")
+	return h.createErrorResponse("Feature under development")
 }
 
 func (h *SlackHandler) handleStatus(slashCmd *slack.SlashCommand) *slack.Msg {
 	// TODO: Implement status
-	return h.createErrorResponse("Funcionalidade em desenvolvimento")
+	return h.createErrorResponse("Feature under development")
 }
 
 

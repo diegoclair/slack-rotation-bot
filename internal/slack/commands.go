@@ -64,30 +64,30 @@ func ParseCommand(text string) (*Command, error) {
 	case "help", "":
 		cmd.Type = CmdHelp
 	default:
-		return nil, fmt.Errorf("comando desconhecido: %s", parts[0])
+		return nil, fmt.Errorf("unknown command: %s", parts[0])
 	}
 
 	return cmd, nil
 }
 
 func GetHelpText() string {
-	return `*Comandos disponíveis:*
+	return `*Available Commands:*
 
-*Configuração:*
-• ` + "`/rotation config time HH:MM`" + ` - Define horário da notificação (ex: 09:30)
-• ` + "`/rotation config days seg,ter,qui,sex`" + ` - Define dias ativos
-• ` + "`/rotation config show`" + ` - Mostra configurações atuais
+*Configuration:*
+• ` + "`/rotation config time HH:MM`" + ` - Set notification time (ex: 09:30)
+• ` + "`/rotation config days 1,2,4,5`" + ` - Set active days (1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun)
+• ` + "`/rotation config show`" + ` - Show current settings
 
-*Gerenciar Membros:*
-• ` + "`/rotation add @usuario`" + ` - Adiciona membro à rotação
-• ` + "`/rotation remove @usuario`" + ` - Remove membro da rotação
-• ` + "`/rotation list`" + ` - Lista todos os membros
+*Manage Members:*
+• ` + "`/rotation add @user`" + ` - Add member to rotation
+• ` + "`/rotation remove @user`" + ` - Remove member from rotation
+• ` + "`/rotation list`" + ` - List all members
 
-*Rotação:*
-• ` + "`/rotation next`" + ` - Pula para próximo apresentador
+*Rotation:*
+• ` + "`/rotation next`" + ` - Skip to next presenter
 
-*Controle:*
-• ` + "`/rotation pause`" + ` - Pausa notificações automáticas
-• ` + "`/rotation resume`" + ` - Retoma notificações automáticas
-• ` + "`/rotation status`" + ` - Mostra status do bot neste canal`
+*Control:*
+• ` + "`/rotation pause`" + ` - Pause automatic notifications
+• ` + "`/rotation resume`" + ` - Resume automatic notifications
+• ` + "`/rotation status`" + ` - Show bot status for this channel`
 }

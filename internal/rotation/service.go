@@ -75,7 +75,7 @@ func (s *Service) AddUser(channelID int, slackUserID string) error {
 	}
 
 	if existingUser != nil {
-		return fmt.Errorf("usuário já está na rotação")
+		return fmt.Errorf("user is already in the rotation")
 	}
 
 	// Create new user
@@ -105,7 +105,7 @@ func (s *Service) RemoveUser(channelID int, slackUserID string) error {
 	}
 
 	if user == nil {
-		return fmt.Errorf("usuário não encontrado na rotação")
+		return fmt.Errorf("user not found in rotation")
 	}
 
 	return s.userRepo.Delete(user.ID)
@@ -123,7 +123,7 @@ func (s *Service) GetNextPresenter(channelID int) (*models.User, error) {
 	}
 
 	if len(users) == 0 {
-		return nil, fmt.Errorf("nenhum usuário ativo na rotação")
+		return nil, fmt.Errorf("no active users in rotation")
 	}
 
 	// Get last presenter
@@ -174,33 +174,34 @@ func (s *Service) UpdateChannelConfig(channelID int, configType, value string) e
 	case "time":
 		// Validate time format HH:MM
 		if _, err := time.Parse("15:04", value); err != nil {
-			return fmt.Errorf("formato de horário inválido. Use HH:MM")
+			return fmt.Errorf("invalid time format. Use HH:MM (24-hour format). Example: 09:30")
 		}
 		channel.NotificationTime = value
 	case "days":
 		// Parse days
 		days := parseDays(value)
 		if len(days) == 0 {
-			return fmt.Errorf("dias inválidos. Use: seg,ter,qui,sex")
+			return fmt.Errorf("invalid days. Use numbers 1-7 (1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun). Example: 1,2,4,5")
 		}
 		daysJSON, _ := json.Marshal(days)
 		channel.ActiveDays = string(daysJSON)
 	default:
-		return fmt.Errorf("tipo de configuração inválido")
+		return fmt.Errorf("invalid configuration type. Use 'time' or 'days'")
 	}
 
 	return s.channelRepo.Update(channel)
 }
 
 func parseDays(input string) []string {
+	// ISO 8601 standard: 1=Monday, 2=Tuesday, ..., 7=Sunday
 	dayMap := map[string]string{
-		"seg": "Monday",
-		"ter": "Tuesday",
-		"qua": "Wednesday",
-		"qui": "Thursday",
-		"sex": "Friday",
-		"sab": "Saturday",
-		"dom": "Sunday",
+		"1": "Monday",
+		"2": "Tuesday",
+		"3": "Wednesday",
+		"4": "Thursday",
+		"5": "Friday",
+		"6": "Saturday",
+		"7": "Sunday",
 	}
 
 	parts := strings.Split(strings.ToLower(input), ",")

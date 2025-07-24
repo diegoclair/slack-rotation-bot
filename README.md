@@ -1,186 +1,186 @@
 # Slack Rotation Bot
 
-Bot para gerenciar rotação de pessoas em diferentes times/canais do Slack. Útil para dailies, apresentações, code reviews, ou qualquer atividade que precise de rotação automática.
+Bot to manage people rotation in different Slack teams/channels. Useful for dailies, presentations, code reviews, or any activity that requires automatic rotation.
 
-## Funcionalidades
+## Features
 
-- Configuração independente por canal
-- Rotação automática de pessoas
-- Notificações programáveis (diárias ou em outros intervalos)
-- Gerenciamento de membros do time
-- Flexível para qualquer tipo de rotação (dailies, apresentações, reviews, etc.)
+- Independent configuration per channel
+- Automatic people rotation
+- Programmable notifications (daily or other intervals)
+- Team member management
+- Flexible for any type of rotation (dailies, presentations, reviews, etc.)
 
-## Comandos Slack
+## Slack Commands
 
-> **Nota**: O bot se configura automaticamente no primeiro uso. Não é necessário comando de setup inicial.
+> **Note**: The bot configures itself automatically on first use. No initial setup command required.
 
-### Gerenciar Membros
+### Manage Members
 ```bash
-/rotation add @usuario      # Adiciona um membro à rotação
-/rotation remove @usuario   # Remove um membro da rotação
-/rotation list              # Lista todos os membros ativos na rotação
+/rotation add @user         # Add member to rotation
+/rotation remove @user      # Remove member from rotation
+/rotation list              # List all active members in rotation
 ```
 
-### Configurações
+### Configuration
 ```bash
-/rotation config time 09:30                    # Define horário da notificação diária
-/rotation config days seg,ter,qui,sex          # Define quais dias da semana são ativos
-/rotation config show                          # Exibe as configurações atuais do canal
+/rotation config time 09:30                    # Set daily notification time
+/rotation config days 1,2,4,5                  # Set active days (1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun)
+/rotation config show                          # Show current channel settings
 ```
 
-### Rotação
+### Rotation
 ```bash
-/rotation next              # Força avançar para a próxima pessoa
+/rotation next              # Force advance to next person
 ```
 
-### Controle e Monitoramento
+### Control and Monitoring
 ```bash
-/rotation pause             # Pausa as notificações automáticas temporariamente
-/rotation resume            # Reativa as notificações automáticas
-/rotation status            # Exibe status geral: configurações, membros e próxima pessoa
-/rotation help              # Mostra todos os comandos disponíveis
+/rotation pause             # Pause automatic notifications temporarily
+/rotation resume            # Resume automatic notifications
+/rotation status            # Show general status: settings, members and next person
+/rotation help              # Show all available commands
 ```
 
-## Arquitetura
+## Architecture
 
-### Multi-tenancy por Canal
-- Cada canal Slack tem sua própria configuração
-- Usuários são gerenciados por canal
-- Histórico de rotação independente
+### Multi-tenancy per Channel
+- Each Slack channel has its own configuration
+- Users are managed per channel
+- Independent rotation history
 
-### Tecnologias
-- **Linguagem**: Go
-- **Banco de Dados**: SQLite
-- **Integração**: Slack API (Slash Commands + Bot)
-- **Scheduler**: Cron interno
+### Technologies
+- **Language**: Go
+- **Database**: SQLite
+- **Integration**: Slack API (Slash Commands + Bot)
+- **Scheduler**: Internal Cron
 
-## Instalação
+## Installation
 
 ```bash
-# Clone o repositório
+# Clone the repository
 git clone https://github.com/diegoclair/slack-rotation-bot
 
-# Instale dependências
+# Install dependencies
 go mod download
 
-# Configure variáveis de ambiente
+# Configure environment variables
 cp .env.example .env
-# Edite .env com suas credenciais Slack
+# Edit .env with your Slack credentials
 
-# Execute
+# Run
 go run cmd/bot/main.go
 ```
 
-## Configuração no Slack
+## Slack Configuration
 
-### Passo 1: Criar Slack App
-1. **Acesse**: [api.slack.com/apps](https://api.slack.com/apps)
-2. **Clique**: botão verde **"Create New App"**
-3. **Selecione**: **"From scratch"**
-4. **Preencha**:
-   - **App Name**: `People Rotation Bot` (ou nome de sua preferência)
-   - **Pick a workspace**: Selecione seu workspace do Slack
-5. **Clique**: **"Create App"**
+### Step 1: Create Slack App
+1. **Access**: [api.slack.com/apps](https://api.slack.com/apps)
+2. **Click**: green **"Create New App"** button
+3. **Select**: **"From scratch"**
+4. **Fill in**:
+   - **App Name**: `People Rotation Bot` (or your preferred name)
+   - **Pick a workspace**: Select your Slack workspace
+5. **Click**: **"Create App"**
 
-### Passo 2: Configurar Permissões do Bot
-1. **No menu lateral esquerdo**, clique em **"OAuth & Permissions"**
-2. **Role até**: seção **"Scopes"**
-3. **Em "Bot Token Scopes"**, clique **"Add an OAuth Scope"** e adicione cada um:
-   - `chat:write` - Para enviar mensagens nos canais
-   - `commands` - Para receber slash commands  
-   - `channels:read` - Para ler informações dos canais
-   - `users:read` - Para ler informações dos usuários
+### Step 2: Configure Bot Permissions
+1. **In the left sidebar**, click **"OAuth & Permissions"**
+2. **Scroll to**: **"Scopes"** section
+3. **Under "Bot Token Scopes"**, click **"Add an OAuth Scope"** and add each:
+   - `chat:write` - To send messages to channels
+   - `commands` - To receive slash commands  
+   - `channels:read` - To read channel information
+   - `users:read` - To read user information
 
-### Passo 3: Instalar Bot no Workspace
-1. **Ainda na página "OAuth & Permissions"**, role para o topo
-2. **Clique**: botão **"Install to Workspace"**
-3. **Autorize**: as permissões na tela que abrir
-4. **IMPORTANTE**: Após instalação, **copie o "Bot User OAuth Token"** 
-   - Começa com `xoxb-...`
-   - Você precisará dele no arquivo `.env`
+### Step 3: Install Bot to Workspace
+1. **Still on "OAuth & Permissions" page**, scroll to top
+2. **Click**: **"Install to Workspace"** button
+3. **Authorize**: permissions on the screen that opens
+4. **IMPORTANT**: After installation, **copy the "Bot User OAuth Token"** 
+   - Starts with `xoxb-...`
+   - You'll need it in the `.env` file
 
-### Passo 4: Pegar Signing Secret
-1. **No menu lateral**, clique em **"Basic Information"**
-2. **Role até**: seção **"App Credentials"**
-3. **Clique**: **"Show"** ao lado de **"Signing Secret"**
-4. **Copie**: o secret (você precisará no arquivo `.env`)
+### Step 4: Get Signing Secret
+1. **In the sidebar**, click **"Basic Information"**
+2. **Scroll to**: **"App Credentials"** section
+3. **Click**: **"Show"** next to **"Signing Secret"**
+4. **Copy**: the secret (you'll need it in the `.env` file)
 
-### Passo 5: Configurar Slash Command
-1. **No menu lateral**, clique em **"Slash Commands"**
-2. **Clique**: **"Create New Command"**
-3. **Preencha os campos**:
+### Step 5: Configure Slash Command
+1. **In the sidebar**, click **"Slash Commands"**
+2. **Click**: **"Create New Command"**
+3. **Fill in the fields**:
    - **Command**: `/rotation`
-   - **Request URL**: `https://seu-servidor.com/slack/commands` 
-     - ⚠️ **Para desenvolvimento local**: Use ngrok (veja próximo passo)
-   - **Short Description**: `Gerenciar rotação de pessoas no time`
-   - **Usage Hint**: `add @usuario | list | config time 09:30`
-4. **Clique**: **"Save"**
+   - **Request URL**: `https://your-server.com/slack/commands` 
+     - ⚠️ **For local development**: Use ngrok (see next step)
+   - **Short Description**: `Manage people rotation in the team`
+   - **Usage Hint**: `add @user | list | config time 09:30`
+4. **Click**: **"Save"**
 
-### Passo 6: Configurar Webhook para Desenvolvimento Local
+### Step 6: Configure Webhook for Local Development
 
-**6.1. Instalar ngrok:**
-- Baixe em: [ngrok.com/download](https://ngrok.com/download)
-- Ou via package manager: `brew install ngrok` (Mac) / `choco install ngrok` (Windows)
+**6.1. Install ngrok:**
+- Download at: [ngrok.com/download](https://ngrok.com/download)
+- Or via package manager: `brew install ngrok` (Mac) / `choco install ngrok` (Windows)
 
-**6.2. Executar aplicação e ngrok:**
+**6.2. Run application and ngrok:**
 ```bash
-# Terminal 1: Rodar aplicação Go
+# Terminal 1: Run Go application
 go run cmd/bot/main.go
 
-# Terminal 2: Expor localhost via ngrok  
+# Terminal 2: Expose localhost via ngrok  
 ngrok http 3000
 ```
 
-**6.3. Atualizar URL no Slack:**
-1. **Copie** a URL do ngrok (ex: `https://abc123.ngrok.io`)
-2. **Volte** para **"Slash Commands"** no Slack App
-3. **Clique** no comando `/rotation` para editá-lo
-4. **Atualize Request URL** para: `https://abc123.ngrok.io/slack/commands`
-5. **Salve**
+**6.3. Update URL in Slack:**
+1. **Copy** the ngrok URL (e.g., `https://abc123.ngrok.io`)
+2. **Go back** to **"Slash Commands"** in Slack App
+3. **Click** on the `/rotation` command to edit it
+4. **Update Request URL** to: `https://abc123.ngrok.io/slack/commands`
+5. **Save**
 
-### Passo 7: Configurar Variáveis de Ambiente
+### Step 7: Configure Environment Variables
 
-**Crie arquivo `.env`** na raiz do projeto:
+**Create `.env` file** at project root:
 ```bash
-SLACK_BOT_TOKEN=xoxb-seu-token-aqui
-SLACK_SIGNING_SECRET=seu-signing-secret-aqui
+SLACK_BOT_TOKEN=xoxb-your-token-here
+SLACK_SIGNING_SECRET=your-signing-secret-here
 PORT=3000
 DATABASE_PATH=./rotation.db
 ```
 
-**Substitua pelos valores reais:**
-- `SLACK_BOT_TOKEN`: Token copiado no Passo 3
-- `SLACK_SIGNING_SECRET`: Secret copiado no Passo 4
+**Replace with actual values:**
+- `SLACK_BOT_TOKEN`: Token copied in Step 3
+- `SLACK_SIGNING_SECRET`: Secret copied in Step 4
 
-## Como Testar
+## How to Test
 
-### Teste Básico
+### Basic Test
 ```bash
-# Verificar se aplicação está rodando
-curl http://localhost:3000/health  # Deve retornar "OK"
+# Check if application is running
+curl http://localhost:3000/health  # Should return "OK"
 ```
 
-### Teste no Slack
-Depois de configurado, teste no canal do Slack:
+### Test in Slack
+After configuration, test in Slack channel:
 ```bash
-/rotation add @seu-usuario     # Adiciona você à rotação
-/rotation list                 # Lista membros
-/rotation config time 09:30    # Define horário (para dailies, ou outro horário)
-/rotation config days seg,ter,qui,sex  # Define dias ativos
-/rotation status               # Vê configurações
+/rotation add @your-user       # Add yourself to rotation
+/rotation list                 # List members
+/rotation config time 09:30    # Set time (for dailies or other schedule)
+/rotation config days 1,2,4,5  # Set active days (Mon-Tue-Thu-Fri)
+/rotation status               # View settings
 ```
 
-### Exemplos de Uso
+### Usage Examples
 ```bash
-# Para daily standup
+# For daily standup (Monday to Friday)
 /rotation config time 09:00
-/rotation config days seg,ter,qua,qui,sex
+/rotation config days 1,2,3,4,5
 
-# Para apresentações semanais  
+# For weekly presentations (Friday)
 /rotation config time 14:00
-/rotation config days sex
+/rotation config days 5
 
-# Para code reviews
+# For code reviews (Monday, Wednesday, Friday)
 /rotation config time 10:30
-/rotation config days seg,qua,sex
+/rotation config days 1,3,5
 ```
