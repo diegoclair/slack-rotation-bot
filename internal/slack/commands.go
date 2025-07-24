@@ -77,21 +77,21 @@ func GetHelpText() string {
 	return `*Comandos disponíveis:*
 
 *Configuração:*
-• ` + "`/daily config time HH:MM`" + ` - Define horário da notificação (ex: 09:30)
-• ` + "`/daily config days seg,ter,qui,sex`" + ` - Define dias ativos
-• ` + "`/daily config show`" + ` - Mostra configurações atuais
+• ` + "`/rotation config time HH:MM`" + ` - Define horário da notificação (ex: 09:30)
+• ` + "`/rotation config days seg,ter,qui,sex`" + ` - Define dias ativos
+• ` + "`/rotation config show`" + ` - Mostra configurações atuais
 
 *Gerenciar Membros:*
-• ` + "`/daily add @usuario`" + ` - Adiciona membro à rotação
-• ` + "`/daily remove @usuario`" + ` - Remove membro da rotação
-• ` + "`/daily list`" + ` - Lista todos os membros
+• ` + "`/rotation add @usuario`" + ` - Adiciona membro à rotação
+• ` + "`/rotation remove @usuario`" + ` - Remove membro da rotação
+• ` + "`/rotation list`" + ` - Lista todos os membros
 
 *Rotação:*
-• ` + "`/daily next`" + ` - Pula para próximo apresentador
-• ` + "`/daily history`" + ` - Mostra histórico recente
+• ` + "`/rotation next`" + ` - Pula para próximo apresentador
+• ` + "`/rotation history`" + ` - Mostra histórico recente
 
 *Controle:*
-• ` + "`/daily pause`" + ` - Pausa notificações automáticas
-• ` + "`/daily resume`" + ` - Retoma notificações automáticas
-• ` + "`/daily status`" + ` - Mostra status do bot neste canal`
+• ` + "`/rotation pause`" + ` - Pausa notificações automáticas
+• ` + "`/rotation resume`" + ` - Retoma notificações automáticas
+• ` + "`/rotation status`" + ` - Mostra status do bot neste canal`
 }

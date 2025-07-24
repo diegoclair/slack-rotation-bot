@@ -174,7 +174,7 @@ func (h *SlackHandler) handleListUsers(slashCmd *slack.SlashCommand) *slack.Msg 
 	if len(users) == 0 {
 		return &slack.Msg{
 			ResponseType: slack.ResponseTypeEphemeral,
-			Text:         "Nenhum usuário na rotação. Use `/daily add @usuario` para adicionar.",
+			Text:         "Nenhum usuário na rotação. Use `/rotation add @usuario` para adicionar.",
 		}
 	}
 

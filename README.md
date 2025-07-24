@@ -16,30 +16,30 @@ Bot para gerenciar rotação de pessoas em diferentes times/canais do Slack. Út
 
 ### Gerenciar Membros
 ```bash
-/daily add @usuario      # Adiciona um membro à rotação
-/daily remove @usuario   # Remove um membro da rotação
-/daily list              # Lista todos os membros ativos na rotação
+/rotation add @usuario      # Adiciona um membro à rotação
+/rotation remove @usuario   # Remove um membro da rotação
+/rotation list              # Lista todos os membros ativos na rotação
 ```
 
 ### Configurações
 ```bash
-/daily config time 09:30                    # Define horário da notificação diária
-/daily config days seg,ter,qui,sex          # Define quais dias da semana são ativos
-/daily config show                          # Exibe as configurações atuais do canal
+/rotation config time 09:30                    # Define horário da notificação diária
+/rotation config days seg,ter,qui,sex          # Define quais dias da semana são ativos
+/rotation config show                          # Exibe as configurações atuais do canal
 ```
 
 ### Rotação
 ```bash
-/daily next              # Força avançar para a próxima pessoa
-/daily history           # Mostra o histórico recente da rotação
+/rotation next              # Força avançar para a próxima pessoa
+/rotation history           # Mostra o histórico recente da rotação
 ```
 
 ### Controle e Monitoramento
 ```bash
-/daily pause             # Pausa as notificações automáticas temporariamente
-/daily resume            # Reativa as notificações automáticas
-/daily status            # Exibe status geral: configurações, membros e próxima pessoa
-/daily help              # Mostra todos os comandos disponíveis
+/rotation pause             # Pausa as notificações automáticas temporariamente
+/rotation resume            # Reativa as notificações automáticas
+/rotation status            # Exibe status geral: configurações, membros e próxima pessoa
+/rotation help              # Mostra todos os comandos disponíveis
 ```
 
 ## Arquitetura
@@ -92,7 +92,7 @@ go run cmd/bot/main.go
 1. Vá em **"Slash Commands"** no menu lateral
 2. Clique **"Create New Command"**
 3. Configure:
-   - **Command**: `/daily`
+   - **Command**: `/rotation`
    - **Request URL**: `https://seu-servidor.com/slack/commands`
    - **Short Description**: `Gerenciar rotação de pessoas no time`
    - **Usage Hint**: `add @usuario | list | config time 09:30`
@@ -139,24 +139,24 @@ curl http://localhost:3000/health  # Deve retornar "OK"
 ### Teste no Slack
 Depois de configurado, teste no canal do Slack:
 ```bash
-/daily add @seu-usuario     # Adiciona você à rotação
-/daily list                 # Lista membros
-/daily config time 09:30    # Define horário (para dailies, ou outro horário)
-/daily config days seg,ter,qui,sex  # Define dias ativos
-/daily status               # Vê configurações
+/rotation add @seu-usuario     # Adiciona você à rotação
+/rotation list                 # Lista membros
+/rotation config time 09:30    # Define horário (para dailies, ou outro horário)
+/rotation config days seg,ter,qui,sex  # Define dias ativos
+/rotation status               # Vê configurações
 ```
 
 ### Exemplos de Uso
 ```bash
 # Para daily standup
-/daily config time 09:00
-/daily config days seg,ter,qua,qui,sex
+/rotation config time 09:00
+/rotation config days seg,ter,qua,qui,sex
 
 # Para apresentações semanais  
-/daily config time 14:00
-/daily config days sex
+/rotation config time 14:00
+/rotation config days sex
 
 # Para code reviews
-/daily config time 10:30
-/daily config days seg,qua,sex
+/rotation config time 10:30
+/rotation config days seg,qua,sex
 ```
