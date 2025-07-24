@@ -1,6 +1,12 @@
 # Slack Rotation Bot
 
+<div align="center">
+  <img src="slack-rotation-bot.png" alt="Slack Rotation Bot" width="200" height="200">
+</div>
+
 Bot to manage people rotation in different Slack teams/channels. Useful for dailies, presentations, code reviews, or any activity that requires automatic rotation.
+
+> 💡 **Tip**: Use the bot image above (`slack-rotation-bot.png`) as your Slack app icon when setting up the bot in your company's Slack workspace!
 
 ## Features
 
