@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/service"
-	slackcmd "github.com/diegoclair/slack-rotation-bot/internal/slack"
+	slackcmd "github.com/diegoclair/slack-rotation-bot/internal/domain/slack"
 	"github.com/slack-go/slack"
 )
 

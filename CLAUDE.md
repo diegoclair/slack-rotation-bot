@@ -61,12 +61,15 @@ slack-rotation-bot/
 ├── internal/         # Private application code
 │   ├── config/      # Environment configuration loading
 │   ├── database/    # SQLite connection + repositories (channel, user)
-│   ├── handlers/    # HTTP/Slack webhook handlers
-│   ├── rotation/    # Core business logic service
-│   ├── scheduler/   # Cron-based daily notification scheduler
-│   └── slack/       # Command parsing and help text
+│   ├── domain/      # Domain layer (following DDD principles)
+│   │   ├── entity/  # Domain entities (Channel, User)
+│   │   ├── service/ # Business logic services
+│   │   │   ├── service.go    # Service initialization
+│   │   │   ├── rotation.go   # Rotation management logic
+│   │   │   └── scheduler.go  # Cron-based scheduler
+│   │   └── slack/   # Slack command parsing and help text
+│   └── handlers/    # HTTP/Slack webhook handlers
 ├── migrator/sqlite/  # Database migrations with embedded SQL files
-├── pkg/models/      # Shared data models (Channel, User)
 └── go.mod           # Dependencies: slack-go/slack, robfig/cron, sqlite3
 ```
 
@@ -91,8 +94,8 @@ slack-rotation-bot/
 - **Authentication**: Bot Token + Signing Secret validation
 - **Commands**: All use `/rotation` prefix (add, remove, list, config, next, status, etc.)
 - **Required Scopes**: `chat:write`, `commands`, `channels:read`, `users:read`
-- **Command Flow**: Parse in `slack/commands.go` → Route in `handlers/slack_handler.go`
-- **Notifications**: Sent via `rotation/service.go` using Slack client
+- **Command Flow**: Parse in `domain/slack/commands.go` → Route in `handlers/slack_handler.go`
+- **Notifications**: Sent via `domain/service/rotation.go` using Slack client
 - **Internationalization**: All messages and responses are in English for universal compatibility
 
 ### Key Dependencies
