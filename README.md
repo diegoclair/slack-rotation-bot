@@ -1,13 +1,14 @@
 # Slack Rotation Bot
 
-Bot para gerenciar rotação de apresentadores da daily em diferentes times/canais do Slack.
+Bot para gerenciar rotação de pessoas em diferentes times/canais do Slack. Útil para dailies, apresentações, code reviews, ou qualquer atividade que precise de rotação automática.
 
 ## Funcionalidades
 
 - Configuração independente por canal
-- Rotação automática de apresentadores
-- Notificações diárias configuráveis
+- Rotação automática de pessoas
+- Notificações programáveis (diárias ou em outros intervalos)
 - Gerenciamento de membros do time
+- Flexível para qualquer tipo de rotação (dailies, apresentações, reviews, etc.)
 
 ## Comandos Slack
 
@@ -15,8 +16,8 @@ Bot para gerenciar rotação de apresentadores da daily em diferentes times/cana
 
 ### Gerenciar Membros
 ```bash
-/daily add @usuario      # Adiciona um membro à rotação de apresentadores
-/daily remove @usuario   # Remove um membro da rotação de apresentadores  
+/daily add @usuario      # Adiciona um membro à rotação
+/daily remove @usuario   # Remove um membro da rotação
 /daily list              # Lista todos os membros ativos na rotação
 ```
 
@@ -29,15 +30,15 @@ Bot para gerenciar rotação de apresentadores da daily em diferentes times/cana
 
 ### Rotação
 ```bash
-/daily next              # Força avançar para o próximo apresentador
-/daily history           # Mostra o histórico recente de apresentações
+/daily next              # Força avançar para a próxima pessoa
+/daily history           # Mostra o histórico recente da rotação
 ```
 
 ### Controle e Monitoramento
 ```bash
 /daily pause             # Pausa as notificações automáticas temporariamente
 /daily resume            # Reativa as notificações automáticas
-/daily status            # Exibe status geral: configurações, membros e próximo apresentador
+/daily status            # Exibe status geral: configurações, membros e próxima pessoa
 /daily help              # Mostra todos os comandos disponíveis
 ```
 
@@ -76,7 +77,7 @@ go run cmd/bot/main.go
 ### 1. Criar Slack App
 1. Acesse [api.slack.com](https://api.slack.com/apps)
 2. Clique em **"Create New App"** → **"From scratch"**
-3. Nome: `Daily Rotation Bot`
+3. Nome: `People Rotation Bot` (ou nome de sua preferência)
 4. Selecione seu workspace
 
 ### 2. Configurar Bot Token Scopes
@@ -93,7 +94,7 @@ go run cmd/bot/main.go
 3. Configure:
    - **Command**: `/daily`
    - **Request URL**: `https://seu-servidor.com/slack/commands`
-   - **Short Description**: `Gerenciar rotação de apresentadores`
+   - **Short Description**: `Gerenciar rotação de pessoas no time`
    - **Usage Hint**: `add @usuario | list | config time 09:30`
 
 ### 4. Instalar no Workspace
@@ -140,7 +141,22 @@ Depois de configurado, teste no canal do Slack:
 ```bash
 /daily add @seu-usuario     # Adiciona você à rotação
 /daily list                 # Lista membros
-/daily config time 09:30    # Define horário  
-/daily config days seg,ter,qui,sex  # Define dias
+/daily config time 09:30    # Define horário (para dailies, ou outro horário)
+/daily config days seg,ter,qui,sex  # Define dias ativos
 /daily status               # Vê configurações
+```
+
+### Exemplos de Uso
+```bash
+# Para daily standup
+/daily config time 09:00
+/daily config days seg,ter,qua,qui,sex
+
+# Para apresentações semanais  
+/daily config time 14:00
+/daily config days sex
+
+# Para code reviews
+/daily config time 10:30
+/daily config days seg,qua,sex
 ```
