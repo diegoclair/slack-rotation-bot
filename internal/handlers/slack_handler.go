@@ -272,8 +272,43 @@ func (h *SlackHandler) handleConfig(cmd *slackcmd.Command, slashCmd *slack.Slash
 	}
 
 	if cmd.Args[0] == "show" {
-		// TODO: Show current config
-		return h.createErrorResponse("Feature under development")
+		// Get channel
+		channel, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+		if err != nil {
+			return h.createErrorResponse("Error checking channel")
+		}
+
+		// Get current configuration
+		config, err := h.services.Rotation.GetChannelConfig(channel.ID)
+		if err != nil {
+			return h.createErrorResponse(fmt.Sprintf("Error getting configuration: %v", err))
+		}
+
+		// Parse active days from JSON for display
+		var activeDays []string
+		if err := json.Unmarshal([]byte(config.ActiveDays), &activeDays); err != nil {
+			activeDays = []string{"Error parsing days"}
+		}
+
+		configText := fmt.Sprintf("📋 *Current Configuration for #%s*\n\n"+
+			"⏰ *Notification Time:* %s\n"+
+			"📅 *Active Days:* %s\n"+
+			"🔔 *Channel Status:* %s",
+			config.SlackChannelName,
+			config.NotificationTime,
+			strings.Join(activeDays, ", "),
+			func() string {
+				if config.IsActive {
+					return "Active"
+				}
+				return "Inactive"
+			}(),
+		)
+
+		return &slack.Msg{
+			ResponseType: slack.ResponseTypeEphemeral,
+			Text:         configText,
+		}
 	}
 
 	if len(cmd.Args) < 2 {

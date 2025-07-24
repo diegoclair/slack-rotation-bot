@@ -74,6 +74,36 @@ func (r *ChannelRepository) GetBySlackID(slackChannelID string) (*entity.Channel
 	return channel, nil
 }
 
+func (r *ChannelRepository) GetByID(id int) (*entity.Channel, error) {
+	channel := &entity.Channel{}
+	query := `
+		SELECT id, slack_channel_id, slack_channel_name, slack_team_id,
+			notification_time, active_days, is_active, created_at, updated_at
+		FROM channels
+		WHERE id = ?
+	`
+
+	err := r.db.conn.QueryRow(query, id).Scan(
+		&channel.ID,
+		&channel.SlackChannelID,
+		&channel.SlackChannelName,
+		&channel.SlackTeamID,
+		&channel.NotificationTime,
+		&channel.ActiveDays,
+		&channel.IsActive,
+		&channel.CreatedAt,
+		&channel.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get channel: %w", err)
+	}
+
+	return channel, nil
+}
+
 func (r *ChannelRepository) Update(channel *entity.Channel) error {
 	query := `
 		UPDATE channels SET

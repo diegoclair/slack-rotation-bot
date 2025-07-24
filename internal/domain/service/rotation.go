@@ -165,9 +165,13 @@ func (s *rotationService) GetCurrentPresenter(channelID int) (*entity.User, erro
 }
 
 func (s *rotationService) UpdateChannelConfig(channelID int, configType, value string) error {
-	channel, err := s.channelRepo.GetBySlackID("")
+	channel, err := s.channelRepo.GetByID(channelID)
 	if err != nil {
 		return fmt.Errorf("failed to get channel: %w", err)
+	}
+	
+	if channel == nil {
+		return fmt.Errorf("channel not found")
 	}
 
 	switch configType {
@@ -190,6 +194,19 @@ func (s *rotationService) UpdateChannelConfig(channelID int, configType, value s
 	}
 
 	return s.channelRepo.Update(channel)
+}
+
+func (s *rotationService) GetChannelConfig(channelID int) (*entity.Channel, error) {
+	channel, err := s.channelRepo.GetByID(channelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get channel: %w", err)
+	}
+	
+	if channel == nil {
+		return nil, fmt.Errorf("channel not found")
+	}
+	
+	return channel, nil
 }
 
 func parseDays(input string) []string {
