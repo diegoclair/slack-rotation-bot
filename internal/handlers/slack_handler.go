@@ -9,21 +9,21 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/diegoclair/slack-rotation-bot/internal/rotation"
+	"github.com/diegoclair/slack-rotation-bot/internal/domain/service"
 	slackcmd "github.com/diegoclair/slack-rotation-bot/internal/slack"
 	"github.com/slack-go/slack"
 )
 
 type SlackHandler struct {
 	slackClient     *slack.Client
-	rotationService *rotation.Service
+	services *service.Services
 	signingSecret   string
 }
 
-func New(slackClient *slack.Client, rotationService *rotation.Service, signingSecret string) *SlackHandler {
+func New(slackClient *slack.Client, services *service.Services, signingSecret string) *SlackHandler {
 	return &SlackHandler{
 		slackClient:     slackClient,
-		rotationService: rotationService,
+		services: services,
 		signingSecret:   signingSecret,
 	}
 }
@@ -130,14 +130,14 @@ func (h *SlackHandler) handleAddUser(cmd *slackcmd.Command, slashCmd *slack.Slas
 	log.Printf("DEBUG: Extracted user ID: %s", userID)
 
 	// Get channel
-	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+	channel, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
 	if err != nil {
 		log.Printf("ERROR setting up channel: %v", err)
 		return h.createErrorResponse("Error checking channel")
 	}
 
 	// Add user
-	if err := h.rotationService.AddUser(channel.ID, userID); err != nil {
+	if err := h.services.Rotation.AddUser(channel.ID, userID); err != nil {
 		log.Printf("ERROR adding user %s: %v", userID, err)
 		return h.createErrorResponse(fmt.Sprintf("Error adding user: %v", err))
 	}
@@ -180,13 +180,13 @@ func (h *SlackHandler) handleRemoveUser(cmd *slackcmd.Command, slashCmd *slack.S
 	}
 
 	// Get channel
-	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+	channel, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
 	if err != nil {
 		return h.createErrorResponse("Error checking channel")
 	}
 
 	// Remove user
-	if err := h.rotationService.RemoveUser(channel.ID, userID); err != nil {
+	if err := h.services.Rotation.RemoveUser(channel.ID, userID); err != nil {
 		return h.createErrorResponse(fmt.Sprintf("Error removing user: %v", err))
 	}
 
@@ -211,13 +211,13 @@ func (h *SlackHandler) handleRemoveUser(cmd *slackcmd.Command, slashCmd *slack.S
 
 func (h *SlackHandler) handleListUsers(slashCmd *slack.SlashCommand) *slack.Msg {
 	// Get channel
-	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+	channel, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
 	if err != nil {
 		return h.createErrorResponse("Error checking channel")
 	}
 
 	// Get users
-	users, err := h.rotationService.ListUsers(channel.ID)
+	users, err := h.services.Rotation.ListUsers(channel.ID)
 	if err != nil {
 		return h.createErrorResponse("Error listing users")
 	}
@@ -244,19 +244,19 @@ func (h *SlackHandler) handleListUsers(slashCmd *slack.SlashCommand) *slack.Msg 
 
 func (h *SlackHandler) handleNext(slashCmd *slack.SlashCommand) *slack.Msg {
 	// Get channel
-	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+	channel, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
 	if err != nil {
 		return h.createErrorResponse("Error checking channel")
 	}
 
 	// Get next presenter
-	nextUser, err := h.rotationService.GetNextPresenter(channel.ID)
+	nextUser, err := h.services.Rotation.GetNextPresenter(channel.ID)
 	if err != nil {
 		return h.createErrorResponse(fmt.Sprintf("Error determining next presenter: %v", err))
 	}
 
 	// Record new presenter
-	if err := h.rotationService.RecordPresentation(channel.ID, nextUser.ID); err != nil {
+	if err := h.services.Rotation.RecordPresentation(channel.ID, nextUser.ID); err != nil {
 		return h.createErrorResponse("Error recording new presenter")
 	}
 
@@ -284,12 +284,12 @@ func (h *SlackHandler) handleConfig(cmd *slackcmd.Command, slashCmd *slack.Slash
 	configValue := strings.Join(cmd.Args[1:], " ")
 
 	// Get channel
-	channel, err := h.rotationService.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+	channel, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
 	if err != nil {
 		return h.createErrorResponse("Error checking channel")
 	}
 
-	if err := h.rotationService.UpdateChannelConfig(channel.ID, configType, configValue); err != nil {
+	if err := h.services.Rotation.UpdateChannelConfig(channel.ID, configType, configValue); err != nil {
 		return h.createErrorResponse(fmt.Sprintf("Error updating configuration: %v", err))
 	}
 

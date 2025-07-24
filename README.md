@@ -153,6 +153,7 @@ DATABASE_PATH=./rotation.db
 - `SLACK_SIGNING_SECRET`: Secret copied in Step 4
 
 ## How to Test
+TODO: add unit tests
 
 ### Basic Test
 ```bash

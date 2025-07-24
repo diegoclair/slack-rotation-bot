@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/diegoclair/slack-rotation-bot/pkg/models"
+	"github.com/diegoclair/slack-rotation-bot/internal/domain/entity"
 )
 
 type ChannelRepository struct {
@@ -16,7 +16,7 @@ func NewChannelRepository(db *DB) *ChannelRepository {
 	return &ChannelRepository{db: db}
 }
 
-func (r *ChannelRepository) Create(channel *models.Channel) error {
+func (r *ChannelRepository) Create(channel *entity.Channel) error {
 	query := `
 		INSERT INTO channels (slack_channel_id, slack_channel_name, slack_team_id, 
 			notification_time, active_days, is_active)
@@ -44,8 +44,8 @@ func (r *ChannelRepository) Create(channel *models.Channel) error {
 	return nil
 }
 
-func (r *ChannelRepository) GetBySlackID(slackChannelID string) (*models.Channel, error) {
-	channel := &models.Channel{}
+func (r *ChannelRepository) GetBySlackID(slackChannelID string) (*entity.Channel, error) {
+	channel := &entity.Channel{}
 	query := `
 		SELECT id, slack_channel_id, slack_channel_name, slack_team_id,
 			notification_time, active_days, is_active, created_at, updated_at
@@ -74,7 +74,7 @@ func (r *ChannelRepository) GetBySlackID(slackChannelID string) (*models.Channel
 	return channel, nil
 }
 
-func (r *ChannelRepository) Update(channel *models.Channel) error {
+func (r *ChannelRepository) Update(channel *entity.Channel) error {
 	query := `
 		UPDATE channels SET
 			slack_channel_name = ?,
@@ -100,7 +100,7 @@ func (r *ChannelRepository) Update(channel *models.Channel) error {
 	return nil
 }
 
-func (r *ChannelRepository) GetActiveChannels() ([]*models.Channel, error) {
+func (r *ChannelRepository) GetActiveChannels() ([]*entity.Channel, error) {
 	query := `
 		SELECT id, slack_channel_id, slack_channel_name, slack_team_id,
 			notification_time, active_days, is_active, created_at, updated_at
@@ -114,9 +114,9 @@ func (r *ChannelRepository) GetActiveChannels() ([]*models.Channel, error) {
 	}
 	defer rows.Close()
 
-	var channels []*models.Channel
+	var channels []*entity.Channel
 	for rows.Next() {
-		channel := &models.Channel{}
+		channel := &entity.Channel{}
 		err := rows.Scan(
 			&channel.ID,
 			&channel.SlackChannelID,

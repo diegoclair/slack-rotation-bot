@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/diegoclair/slack-rotation-bot/pkg/models"
+	"github.com/diegoclair/slack-rotation-bot/internal/domain/entity"
 )
 
 type UserRepository struct {
@@ -15,7 +15,7 @@ func NewUserRepository(db *DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-func (r *UserRepository) Create(user *models.User) error {
+func (r *UserRepository) Create(user *entity.User) error {
 	query := `
 		INSERT INTO users (channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter)
 		VALUES (?, ?, ?, ?, ?, ?)
@@ -42,8 +42,8 @@ func (r *UserRepository) Create(user *models.User) error {
 	return nil
 }
 
-func (r *UserRepository) GetByChannelAndSlackID(channelID int, slackUserID string) (*models.User, error) {
-	user := &models.User{}
+func (r *UserRepository) GetByChannelAndSlackID(channelID int, slackUserID string) (*entity.User, error) {
+	user := &entity.User{}
 	query := `
 		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter, joined_at
 		FROM users
@@ -70,7 +70,7 @@ func (r *UserRepository) GetByChannelAndSlackID(channelID int, slackUserID strin
 	return user, nil
 }
 
-func (r *UserRepository) GetActiveUsersByChannel(channelID int) ([]*models.User, error) {
+func (r *UserRepository) GetActiveUsersByChannel(channelID int) ([]*entity.User, error) {
 	query := `
 		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter, joined_at
 		FROM users
@@ -84,9 +84,9 @@ func (r *UserRepository) GetActiveUsersByChannel(channelID int) ([]*models.User,
 	}
 	defer rows.Close()
 
-	var users []*models.User
+	var users []*entity.User
 	for rows.Next() {
-		user := &models.User{}
+		user := &entity.User{}
 		err := rows.Scan(
 			&user.ID,
 			&user.ChannelID,
@@ -140,8 +140,8 @@ func (r *UserRepository) SetLastPresenter(channelID, userID int) error {
 	return tx.Commit()
 }
 
-func (r *UserRepository) GetLastPresenter(channelID int) (*models.User, error) {
-	user := &models.User{}
+func (r *UserRepository) GetLastPresenter(channelID int) (*entity.User, error) {
+	user := &entity.User{}
 	query := `
 		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter, joined_at
 		FROM users

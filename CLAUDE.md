@@ -167,3 +167,4 @@ slack-rotation-bot/
 - **Status command**: Show current rotation status and settings
 - **Pause/Resume**: Temporarily disable notifications
 - **Config show**: Display current channel configuration
+- **Scheduler Implementation**: Daily notification cron job not implemented yet

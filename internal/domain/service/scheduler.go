@@ -1,23 +1,21 @@
-package scheduler
+package service
 
 import (
 	"log"
-
-	"github.com/diegoclair/slack-rotation-bot/internal/rotation"
 )
 
-type Scheduler struct {
-	rotationService *rotation.Service
+type scheduler struct {
+	rotationService *rotationService
 	// TODO: Add cron job implementation
 }
 
-func New(rotationService *rotation.Service) *Scheduler {
-	return &Scheduler{
+func newScheduler(rotationService *rotationService) *scheduler {
+	return &scheduler{
 		rotationService: rotationService,
 	}
 }
 
-func (s *Scheduler) Start() {
+func (s *scheduler) Start() {
 	log.Println("Scheduler started (not implemented yet)")
 	// TODO: Implement cron jobs for daily notifications
 	// This will:
@@ -32,7 +30,7 @@ func (s *Scheduler) Start() {
 	// - See CLAUDE.md for detailed timezone fix requirements
 }
 
-func (s *Scheduler) Stop() {
+func (s *scheduler) Stop() {
 	log.Println("Scheduler stopped")
 	// TODO: Stop all cron jobs
 }

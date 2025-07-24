@@ -8,8 +8,7 @@ import (
 	"github.com/diegoclair/slack-rotation-bot/internal/config"
 	"github.com/diegoclair/slack-rotation-bot/internal/database"
 	"github.com/diegoclair/slack-rotation-bot/internal/handlers"
-	"github.com/diegoclair/slack-rotation-bot/internal/rotation"
-	"github.com/diegoclair/slack-rotation-bot/internal/scheduler"
+	"github.com/diegoclair/slack-rotation-bot/internal/domain/service"
 	"github.com/diegoclair/slack-rotation-bot/migrator/sqlite"
 	"github.com/joho/godotenv"
 	"github.com/slack-go/slack"
@@ -36,13 +35,12 @@ func main() {
 
 	slackClient := slack.New(cfg.SlackBotToken)
 
-	rotationService := rotation.New(db, slackClient)
+	services := service.New(db, slackClient)
 
-	sched := scheduler.New(rotationService)
-	sched.Start()
-	defer sched.Stop()
+	services.Scheduler.Start()
+	defer services.Scheduler.Stop()
 
-	handler := handlers.New(slackClient, rotationService, cfg.SlackSigningSecret)
+	handler := handlers.New(slackClient, services, cfg.SlackSigningSecret)
 
 	http.HandleFunc("/slack/commands", handler.HandleSlashCommand)
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

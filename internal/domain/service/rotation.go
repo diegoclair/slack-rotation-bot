@@ -1,4 +1,4 @@
-package rotation
+package service
 
 import (
 	"encoding/json"
@@ -9,25 +9,25 @@ import (
 	"time"
 
 	"github.com/diegoclair/slack-rotation-bot/internal/database"
-	"github.com/diegoclair/slack-rotation-bot/pkg/models"
+	"github.com/diegoclair/slack-rotation-bot/internal/domain/entity"
 	"github.com/slack-go/slack"
 )
 
-type Service struct {
+type rotationService struct {
 	channelRepo *database.ChannelRepository
 	userRepo    *database.UserRepository
 	slackClient *slack.Client
 }
 
-func New(db *database.DB, slackClient *slack.Client) *Service {
-	return &Service{
+func newRotation(db *database.DB, slackClient *slack.Client) *rotationService {
+	return &rotationService{
 		channelRepo: database.NewChannelRepository(db),
 		userRepo:    database.NewUserRepository(db),
 		slackClient: slackClient,
 	}
 }
 
-func (s *Service) SetupChannel(slackChannelID, slackChannelName, slackTeamID string) (*models.Channel, error) {
+func (s *rotationService) SetupChannel(slackChannelID, slackChannelName, slackTeamID string) (*entity.Channel, error) {
 	// Check if channel already exists
 	channel, err := s.channelRepo.GetBySlackID(slackChannelID)
 	if err != nil {
@@ -39,7 +39,7 @@ func (s *Service) SetupChannel(slackChannelID, slackChannelName, slackTeamID str
 	}
 
 	// Create new channel with default settings
-	channel = &models.Channel{
+	channel = &entity.Channel{
 		SlackChannelID:   slackChannelID,
 		SlackChannelName: slackChannelName,
 		SlackTeamID:      slackTeamID,
@@ -55,7 +55,7 @@ func (s *Service) SetupChannel(slackChannelID, slackChannelName, slackTeamID str
 	return channel, nil
 }
 
-func (s *Service) AddUser(channelID int, slackUserID string) error {
+func (s *rotationService) AddUser(channelID int, slackUserID string) error {
 	log.Printf("DEBUG AddUser: channelID=%d, slackUserID=%s", channelID, slackUserID)
 
 	// Get user info from Slack
@@ -87,7 +87,7 @@ func (s *Service) AddUser(channelID int, slackUserID string) error {
 		displayName = userInfo.Name
 	}
 
-	user := &models.User{
+	user := &entity.User{
 		ChannelID:     channelID,
 		SlackUserID:   slackUserID,
 		SlackUserName: userInfo.Name,
@@ -98,7 +98,7 @@ func (s *Service) AddUser(channelID int, slackUserID string) error {
 	return s.userRepo.Create(user)
 }
 
-func (s *Service) RemoveUser(channelID int, slackUserID string) error {
+func (s *rotationService) RemoveUser(channelID int, slackUserID string) error {
 	user, err := s.userRepo.GetByChannelAndSlackID(channelID, slackUserID)
 	if err != nil {
 		return fmt.Errorf("failed to find user: %w", err)
@@ -111,11 +111,11 @@ func (s *Service) RemoveUser(channelID int, slackUserID string) error {
 	return s.userRepo.Delete(user.ID)
 }
 
-func (s *Service) ListUsers(channelID int) ([]*models.User, error) {
+func (s *rotationService) ListUsers(channelID int) ([]*entity.User, error) {
 	return s.userRepo.GetActiveUsersByChannel(channelID)
 }
 
-func (s *Service) GetNextPresenter(channelID int) (*models.User, error) {
+func (s *rotationService) GetNextPresenter(channelID int) (*entity.User, error) {
 	// Get all active users ordered by joined_at (rotation order)
 	users, err := s.userRepo.GetActiveUsersByChannel(channelID)
 	if err != nil {
@@ -156,15 +156,15 @@ func (s *Service) GetNextPresenter(channelID int) (*models.User, error) {
 	return users[nextIndex], nil
 }
 
-func (s *Service) RecordPresentation(channelID, userID int) error {
+func (s *rotationService) RecordPresentation(channelID, userID int) error {
 	return s.userRepo.SetLastPresenter(channelID, userID)
 }
 
-func (s *Service) GetCurrentPresenter(channelID int) (*models.User, error) {
+func (s *rotationService) GetCurrentPresenter(channelID int) (*entity.User, error) {
 	return s.userRepo.GetLastPresenter(channelID)
 }
 
-func (s *Service) UpdateChannelConfig(channelID int, configType, value string) error {
+func (s *rotationService) UpdateChannelConfig(channelID int, configType, value string) error {
 	channel, err := s.channelRepo.GetBySlackID("")
 	if err != nil {
 		return fmt.Errorf("failed to get channel: %w", err)
@@ -234,7 +234,7 @@ func indexOf(slice []string, item string) int {
 	return -1
 }
 
-func (s *Service) GetChannelStatus(channelID int) (*models.Channel, error) {
+func (s *rotationService) GetChannelStatus(channelID int) (*entity.Channel, error) {
 	// This would need adjustment to get by ID instead of SlackID
 	// For now, returning error
 	return nil, fmt.Errorf("not implemented")
