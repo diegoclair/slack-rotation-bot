@@ -2,33 +2,41 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
+	"github.com/diegoclair/slack-rotation-bot/internal/domain/contract"
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/entity"
 )
 
-type ChannelRepository struct {
-	db *DB
+type channelRepository struct {
+	db dbConn
 }
 
-func NewChannelRepository(db *DB) *ChannelRepository {
-	return &ChannelRepository{db: db}
+func newChannelRepository(db dbConn) contract.ChannelRepo {
+	return &channelRepository{db: db}
 }
 
-func (r *ChannelRepository) Create(channel *entity.Channel) error {
+func (r *channelRepository) Create(channel *entity.Channel) error {
 	query := `
 		INSERT INTO channels (slack_channel_id, slack_channel_name, slack_team_id, 
 			notification_time, active_days, is_active)
 		VALUES (?, ?, ?, ?, ?, ?)
 	`
-	
-	result, err := r.db.conn.Exec(query, 
+
+	// Convert ActiveDays to JSON for storage
+	activeDaysJSON, err := json.Marshal(channel.ActiveDays)
+	if err != nil {
+		return fmt.Errorf("failed to marshal active days: %w", err)
+	}
+
+	result, err := r.db.Exec(query,
 		channel.SlackChannelID,
 		channel.SlackChannelName,
 		channel.SlackTeamID,
 		channel.NotificationTime,
-		channel.ActiveDays,
+		string(activeDaysJSON),
 		channel.IsActive,
 	)
 	if err != nil {
@@ -40,11 +48,11 @@ func (r *ChannelRepository) Create(channel *entity.Channel) error {
 		return fmt.Errorf("failed to get last insert id: %w", err)
 	}
 
-	channel.ID = int(id)
+	channel.ID = id
 	return nil
 }
 
-func (r *ChannelRepository) GetBySlackID(slackChannelID string) (*entity.Channel, error) {
+func (r *channelRepository) GetBySlackID(slackChannelID string) (*entity.Channel, error) {
 	channel := &entity.Channel{}
 	query := `
 		SELECT id, slack_channel_id, slack_channel_name, slack_team_id,
@@ -53,13 +61,14 @@ func (r *ChannelRepository) GetBySlackID(slackChannelID string) (*entity.Channel
 		WHERE slack_channel_id = ?
 	`
 
-	err := r.db.conn.QueryRow(query, slackChannelID).Scan(
+	var activeDaysJSON string
+	err := r.db.QueryRow(query, slackChannelID).Scan(
 		&channel.ID,
 		&channel.SlackChannelID,
 		&channel.SlackChannelName,
 		&channel.SlackTeamID,
 		&channel.NotificationTime,
-		&channel.ActiveDays,
+		&activeDaysJSON,
 		&channel.IsActive,
 		&channel.CreatedAt,
 		&channel.UpdatedAt,
@@ -71,10 +80,21 @@ func (r *ChannelRepository) GetBySlackID(slackChannelID string) (*entity.Channel
 		return nil, fmt.Errorf("failed to get channel: %w", err)
 	}
 
+	// Convert JSON to ActiveDays slice
+	if err := json.Unmarshal([]byte(activeDaysJSON), &channel.ActiveDays); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal active days: %w", err)
+	}
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get channel: %w", err)
+	}
+
 	return channel, nil
 }
 
-func (r *ChannelRepository) GetByID(id int) (*entity.Channel, error) {
+func (r *channelRepository) GetByID(id int64) (*entity.Channel, error) {
 	channel := &entity.Channel{}
 	query := `
 		SELECT id, slack_channel_id, slack_channel_name, slack_team_id,
@@ -83,13 +103,14 @@ func (r *ChannelRepository) GetByID(id int) (*entity.Channel, error) {
 		WHERE id = ?
 	`
 
-	err := r.db.conn.QueryRow(query, id).Scan(
+	var activeDaysJSON string
+	err := r.db.QueryRow(query, id).Scan(
 		&channel.ID,
 		&channel.SlackChannelID,
 		&channel.SlackChannelName,
 		&channel.SlackTeamID,
 		&channel.NotificationTime,
-		&channel.ActiveDays,
+		&activeDaysJSON,
 		&channel.IsActive,
 		&channel.CreatedAt,
 		&channel.UpdatedAt,
@@ -101,10 +122,15 @@ func (r *ChannelRepository) GetByID(id int) (*entity.Channel, error) {
 		return nil, fmt.Errorf("failed to get channel: %w", err)
 	}
 
+	// Convert JSON to ActiveDays slice
+	if err := json.Unmarshal([]byte(activeDaysJSON), &channel.ActiveDays); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal active days: %w", err)
+	}
+
 	return channel, nil
 }
 
-func (r *ChannelRepository) Update(channel *entity.Channel) error {
+func (r *channelRepository) Update(channel *entity.Channel) error {
 	query := `
 		UPDATE channels SET
 			slack_channel_name = ?,
@@ -115,10 +141,16 @@ func (r *ChannelRepository) Update(channel *entity.Channel) error {
 		WHERE id = ?
 	`
 
-	_, err := r.db.conn.Exec(query,
+	// Convert ActiveDays to JSON for storage
+	activeDaysJSON, err := json.Marshal(channel.ActiveDays)
+	if err != nil {
+		return fmt.Errorf("failed to marshal active days: %w", err)
+	}
+
+	_, err = r.db.Exec(query,
 		channel.SlackChannelName,
 		channel.NotificationTime,
-		channel.ActiveDays,
+		string(activeDaysJSON),
 		channel.IsActive,
 		time.Now(),
 		channel.ID,
@@ -130,7 +162,7 @@ func (r *ChannelRepository) Update(channel *entity.Channel) error {
 	return nil
 }
 
-func (r *ChannelRepository) GetActiveChannels() ([]*entity.Channel, error) {
+func (r *channelRepository) GetActiveChannels() ([]*entity.Channel, error) {
 	query := `
 		SELECT id, slack_channel_id, slack_channel_name, slack_team_id,
 			notification_time, active_days, is_active, created_at, updated_at
@@ -138,7 +170,7 @@ func (r *ChannelRepository) GetActiveChannels() ([]*entity.Channel, error) {
 		WHERE is_active = 1
 	`
 
-	rows, err := r.db.conn.Query(query)
+	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get active channels: %w", err)
 	}
@@ -147,17 +179,26 @@ func (r *ChannelRepository) GetActiveChannels() ([]*entity.Channel, error) {
 	var channels []*entity.Channel
 	for rows.Next() {
 		channel := &entity.Channel{}
+		var activeDaysJSON string
 		err := rows.Scan(
 			&channel.ID,
 			&channel.SlackChannelID,
 			&channel.SlackChannelName,
 			&channel.SlackTeamID,
 			&channel.NotificationTime,
-			&channel.ActiveDays,
+			&activeDaysJSON,
 			&channel.IsActive,
 			&channel.CreatedAt,
 			&channel.UpdatedAt,
 		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan channel: %w", err)
+		}
+
+		// Convert JSON to ActiveDays slice
+		if err := json.Unmarshal([]byte(activeDaysJSON), &channel.ActiveDays); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal active days: %w", err)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan channel: %w", err)
 		}

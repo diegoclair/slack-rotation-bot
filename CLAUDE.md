@@ -62,12 +62,14 @@ slack-rotation-bot/
 │   ├── config/      # Environment configuration loading
 │   ├── database/    # SQLite connection + repositories (channel, user)
 │   ├── domain/      # Domain layer (following DDD principles)
-│   │   ├── entity/  # Domain entities (Channel, User)
-│   │   ├── service/ # Business logic services
-│   │   │   ├── service.go    # Service initialization
-│   │   │   ├── rotation.go   # Rotation management logic
-│   │   │   └── scheduler.go  # Cron-based scheduler
-│   │   └── slack/   # Slack command parsing and help text
+│   │   ├── consts.go    # ISO 8601 weekday constants and mappings
+│   │   ├── contract/    # Repository interfaces (DataManager pattern)
+│   │   ├── entity/      # Domain entities (Channel, User)
+│   │   ├── service/     # Business logic services
+│   │   │   ├── instance.go  # Service initialization
+│   │   │   ├── rotation.go  # Rotation management logic
+│   │   │   └── scheduler.go # Cron-based scheduler
+│   │   └── slack/       # Slack command parsing and help text
 │   └── handlers/    # HTTP/Slack webhook handlers
 ├── migrator/sqlite/  # Database migrations with embedded SQL files
 └── go.mod           # Dependencies: slack-go/slack, robfig/cron, sqlite3
@@ -127,7 +129,10 @@ slack-rotation-bot/
 ### Important Notes
 - **Hard Delete**: Removed users are permanently deleted from database (no soft delete)
 - **Rotation Logic**: Uses `last_presenter` boolean flag to track current presenter
-- **Auto-setup**: Channels are automatically configured on first command use
+- **Auto-setup**: Channels are automatically configured on first command use with user feedback
+  - Default settings: 09:00 notification time, Monday-Friday active days
+  - Users see confirmation message: "✅ *Channel configured automatically with default settings:*"
+  - Provides guidance to customize: "Use `/rotation config show` to view or `/rotation config` to customize"
 - **ISO Days**: Uses numbers 1-7 instead of language-specific abbreviations for universal compatibility
 
 ## Recent Optimizations (Completed)
@@ -147,6 +152,13 @@ slack-rotation-bot/
 - ✅ **Removed unused commands** - Eliminated `setup`, `who`, `history`, `purge`
 - ✅ **Simplified rotation logic** - Clean algorithm using boolean flag
 - ✅ **Repository cleanup** - Removed `rotation_repo.go`
+
+### UX Improvements
+- ✅ **Auto-configuration feedback** - Users see clear notification when channel is auto-configured
+- ✅ **Default days fixed** - Auto-setup now includes Wednesday (Monday-Friday complete)
+- ✅ **Guidance messages** - Users guided on how to customize after auto-setup
+- ✅ **ISO 8601 storage** - ActiveDays stored as `[1,2,3,4,5]` instead of string names
+- ✅ **Type safety** - `ActiveDays []int` with proper JSON conversion in repository layer
 
 ## TODO: Critical Issues
 

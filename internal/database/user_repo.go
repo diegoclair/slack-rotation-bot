@@ -4,24 +4,25 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/diegoclair/slack-rotation-bot/internal/domain/contract"
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/entity"
 )
 
-type UserRepository struct {
-	db *DB
+type userRepository struct {
+	db dbConn
 }
 
-func NewUserRepository(db *DB) *UserRepository {
-	return &UserRepository{db: db}
+func newUserRepository(db dbConn) contract.UserRepo {
+	return &userRepository{db: db}
 }
 
-func (r *UserRepository) Create(user *entity.User) error {
+func (r *userRepository) Create(user *entity.User) error {
 	query := `
 		INSERT INTO users (channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter)
 		VALUES (?, ?, ?, ?, ?, ?)
 	`
-	
-	result, err := r.db.conn.Exec(query,
+
+	result, err := r.db.Exec(query,
 		user.ChannelID,
 		user.SlackUserID,
 		user.SlackUserName,
@@ -38,11 +39,11 @@ func (r *UserRepository) Create(user *entity.User) error {
 		return fmt.Errorf("failed to get last insert id: %w", err)
 	}
 
-	user.ID = int(id)
+	user.ID = id
 	return nil
 }
 
-func (r *UserRepository) GetByChannelAndSlackID(channelID int, slackUserID string) (*entity.User, error) {
+func (r *userRepository) GetByChannelAndSlackID(channelID int64, slackUserID string) (*entity.User, error) {
 	user := &entity.User{}
 	query := `
 		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter, joined_at
@@ -50,7 +51,7 @@ func (r *UserRepository) GetByChannelAndSlackID(channelID int, slackUserID strin
 		WHERE channel_id = ? AND slack_user_id = ?
 	`
 
-	err := r.db.conn.QueryRow(query, channelID, slackUserID).Scan(
+	err := r.db.QueryRow(query, channelID, slackUserID).Scan(
 		&user.ID,
 		&user.ChannelID,
 		&user.SlackUserID,
@@ -70,7 +71,7 @@ func (r *UserRepository) GetByChannelAndSlackID(channelID int, slackUserID strin
 	return user, nil
 }
 
-func (r *UserRepository) GetActiveUsersByChannel(channelID int) ([]*entity.User, error) {
+func (r *userRepository) GetActiveUsersByChannel(channelID int64) ([]*entity.User, error) {
 	query := `
 		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter, joined_at
 		FROM users
@@ -78,7 +79,7 @@ func (r *UserRepository) GetActiveUsersByChannel(channelID int) ([]*entity.User,
 		ORDER BY joined_at ASC
 	`
 
-	rows, err := r.db.conn.Query(query, channelID)
+	rows, err := r.db.Query(query, channelID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get users: %w", err)
 	}
@@ -106,11 +107,10 @@ func (r *UserRepository) GetActiveUsersByChannel(channelID int) ([]*entity.User,
 	return users, nil
 }
 
-
-func (r *UserRepository) Delete(userID int) error {
+func (r *userRepository) Delete(userID int64) error {
 	query := `DELETE FROM users WHERE id = ?`
-	
-	_, err := r.db.conn.Exec(query, userID)
+
+	_, err := r.db.Exec(query, userID)
 	if err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
@@ -118,29 +118,25 @@ func (r *UserRepository) Delete(userID int) error {
 	return nil
 }
 
-func (r *UserRepository) SetLastPresenter(channelID, userID int) error {
-	tx, err := r.db.conn.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
-	// Clear previous last_presenter
-	_, err = tx.Exec(`UPDATE users SET last_presenter = 0 WHERE channel_id = ?`, channelID)
+func (r *userRepository) ClearLastPresenter(channelID int64) error {
+	query := `UPDATE users SET last_presenter = 0 WHERE channel_id = ?`
+	_, err := r.db.Exec(query, channelID)
 	if err != nil {
 		return fmt.Errorf("failed to clear last presenter: %w", err)
 	}
+	return nil
+}
 
-	// Set new last_presenter
-	_, err = tx.Exec(`UPDATE users SET last_presenter = 1 WHERE id = ?`, userID)
+func (r *userRepository) SetLastPresenter(userID int64) error {
+	query := `UPDATE users SET last_presenter = 1 WHERE id = ?`
+	_, err := r.db.Exec(query, userID)
 	if err != nil {
 		return fmt.Errorf("failed to set last presenter: %w", err)
 	}
-
-	return tx.Commit()
+	return nil
 }
 
-func (r *UserRepository) GetLastPresenter(channelID int) (*entity.User, error) {
+func (r *userRepository) GetLastPresenter(channelID int64) (*entity.User, error) {
 	user := &entity.User{}
 	query := `
 		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter, joined_at
@@ -149,7 +145,7 @@ func (r *UserRepository) GetLastPresenter(channelID int) (*entity.User, error) {
 		LIMIT 1
 	`
 
-	err := r.db.conn.QueryRow(query, channelID).Scan(
+	err := r.db.QueryRow(query, channelID).Scan(
 		&user.ID,
 		&user.ChannelID,
 		&user.SlackUserID,
@@ -168,5 +164,3 @@ func (r *UserRepository) GetLastPresenter(channelID int) (*entity.User, error) {
 
 	return user, nil
 }
-
-

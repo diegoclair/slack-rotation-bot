@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS channels (
     slack_channel_name TEXT NOT NULL,
     slack_team_id TEXT NOT NULL,
     notification_time TEXT DEFAULT '09:00',
-    active_days TEXT DEFAULT '["Monday","Tuesday","Thursday","Friday"]',
+    active_days TEXT DEFAULT '[1,2,3,4,5]',
     is_active BOOLEAN DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP

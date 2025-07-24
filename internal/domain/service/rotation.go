@@ -1,41 +1,40 @@
 package service
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"log"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/diegoclair/slack-rotation-bot/internal/database"
+	"github.com/diegoclair/slack-rotation-bot/internal/domain"
+	"github.com/diegoclair/slack-rotation-bot/internal/domain/contract"
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/entity"
 	"github.com/slack-go/slack"
 )
 
 type rotationService struct {
-	channelRepo *database.ChannelRepository
-	userRepo    *database.UserRepository
+	dm          contract.DataManager
 	slackClient *slack.Client
 }
 
-func newRotation(db *database.DB, slackClient *slack.Client) *rotationService {
+func newRotation(dm contract.DataManager, slackClient *slack.Client) *rotationService {
 	return &rotationService{
-		channelRepo: database.NewChannelRepository(db),
-		userRepo:    database.NewUserRepository(db),
+		dm:          dm,
 		slackClient: slackClient,
 	}
 }
 
-func (s *rotationService) SetupChannel(slackChannelID, slackChannelName, slackTeamID string) (*entity.Channel, error) {
+func (s *rotationService) SetupChannel(slackChannelID, slackChannelName, slackTeamID string) (*entity.Channel, bool, error) {
 	// Check if channel already exists
-	channel, err := s.channelRepo.GetBySlackID(slackChannelID)
+	channel, err := s.dm.Channel().GetBySlackID(slackChannelID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check channel: %w", err)
+		return nil, false, fmt.Errorf("failed to check channel: %w", err)
 	}
 
 	if channel != nil {
-		return channel, nil
+		return channel, false, nil // Channel already existed
 	}
 
 	// Create new channel with default settings
@@ -44,18 +43,18 @@ func (s *rotationService) SetupChannel(slackChannelID, slackChannelName, slackTe
 		SlackChannelName: slackChannelName,
 		SlackTeamID:      slackTeamID,
 		NotificationTime: "09:00",
-		ActiveDays:       `["Monday","Tuesday","Thursday","Friday"]`,
+		ActiveDays:       domain.DefaultActiveDays, // Monday-Friday in ISO format
 		IsActive:         true,
 	}
 
-	if err := s.channelRepo.Create(channel); err != nil {
-		return nil, fmt.Errorf("failed to create channel: %w", err)
+	if err := s.dm.Channel().Create(channel); err != nil {
+		return nil, false, fmt.Errorf("failed to create channel: %w", err)
 	}
 
-	return channel, nil
+	return channel, true, nil // Channel was auto-created
 }
 
-func (s *rotationService) AddUser(channelID int, slackUserID string) error {
+func (s *rotationService) AddUser(channelID int64, slackUserID string) error {
 	log.Printf("DEBUG AddUser: channelID=%d, slackUserID=%s", channelID, slackUserID)
 
 	// Get user info from Slack
@@ -69,7 +68,7 @@ func (s *rotationService) AddUser(channelID int, slackUserID string) error {
 		userInfo.Name, userInfo.Profile.DisplayName, userInfo.Profile.RealName)
 
 	// Check if user already exists
-	existingUser, err := s.userRepo.GetByChannelAndSlackID(channelID, slackUserID)
+	existingUser, err := s.dm.User().GetByChannelAndSlackID(channelID, slackUserID)
 	if err != nil {
 		return fmt.Errorf("failed to check existing user: %w", err)
 	}
@@ -95,11 +94,11 @@ func (s *rotationService) AddUser(channelID int, slackUserID string) error {
 		IsActive:      true,
 	}
 
-	return s.userRepo.Create(user)
+	return s.dm.User().Create(user)
 }
 
-func (s *rotationService) RemoveUser(channelID int, slackUserID string) error {
-	user, err := s.userRepo.GetByChannelAndSlackID(channelID, slackUserID)
+func (s *rotationService) RemoveUser(channelID int64, slackUserID string) error {
+	user, err := s.dm.User().GetByChannelAndSlackID(channelID, slackUserID)
 	if err != nil {
 		return fmt.Errorf("failed to find user: %w", err)
 	}
@@ -108,16 +107,16 @@ func (s *rotationService) RemoveUser(channelID int, slackUserID string) error {
 		return fmt.Errorf("user not found in rotation")
 	}
 
-	return s.userRepo.Delete(user.ID)
+	return s.dm.User().Delete(user.ID)
 }
 
-func (s *rotationService) ListUsers(channelID int) ([]*entity.User, error) {
-	return s.userRepo.GetActiveUsersByChannel(channelID)
+func (s *rotationService) ListUsers(channelID int64) ([]*entity.User, error) {
+	return s.dm.User().GetActiveUsersByChannel(channelID)
 }
 
-func (s *rotationService) GetNextPresenter(channelID int) (*entity.User, error) {
+func (s *rotationService) GetNextPresenter(channelID int64) (*entity.User, error) {
 	// Get all active users ordered by joined_at (rotation order)
-	users, err := s.userRepo.GetActiveUsersByChannel(channelID)
+	users, err := s.dm.User().GetActiveUsersByChannel(channelID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get users: %w", err)
 	}
@@ -127,7 +126,7 @@ func (s *rotationService) GetNextPresenter(channelID int) (*entity.User, error) 
 	}
 
 	// Get last presenter
-	lastPresenter, err := s.userRepo.GetLastPresenter(channelID)
+	lastPresenter, err := s.dm.User().GetLastPresenter(channelID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get last presenter: %w", err)
 	}
@@ -156,20 +155,32 @@ func (s *rotationService) GetNextPresenter(channelID int) (*entity.User, error) 
 	return users[nextIndex], nil
 }
 
-func (s *rotationService) RecordPresentation(channelID, userID int) error {
-	return s.userRepo.SetLastPresenter(channelID, userID)
+func (s *rotationService) RecordPresentation(ctx context.Context, channelID, userID int64) error {
+	return s.dm.WithTransaction(ctx, func(tx contract.DataManager) error {
+		// Clear previous presenter
+		if err := tx.User().ClearLastPresenter(channelID); err != nil {
+			return fmt.Errorf("failed to clear last presenter: %w", err)
+		}
+
+		// Set new presenter
+		if err := tx.User().SetLastPresenter(userID); err != nil {
+			return fmt.Errorf("failed to set last presenter: %w", err)
+		}
+
+		return nil
+	})
 }
 
-func (s *rotationService) GetCurrentPresenter(channelID int) (*entity.User, error) {
-	return s.userRepo.GetLastPresenter(channelID)
+func (s *rotationService) GetCurrentPresenter(channelID int64) (*entity.User, error) {
+	return s.dm.User().GetLastPresenter(channelID)
 }
 
-func (s *rotationService) UpdateChannelConfig(channelID int, configType, value string) error {
-	channel, err := s.channelRepo.GetByID(channelID)
+func (s *rotationService) UpdateChannelConfig(channelID int64, configType, value string) error {
+	channel, err := s.dm.Channel().GetByID(channelID)
 	if err != nil {
 		return fmt.Errorf("failed to get channel: %w", err)
 	}
-	
+
 	if channel == nil {
 		return fmt.Errorf("channel not found")
 	}
@@ -187,69 +198,46 @@ func (s *rotationService) UpdateChannelConfig(channelID int, configType, value s
 		if len(days) == 0 {
 			return fmt.Errorf("invalid days. Use numbers 1-7 (1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun). Example: 1,2,4,5")
 		}
-		daysJSON, _ := json.Marshal(days)
-		channel.ActiveDays = string(daysJSON)
+		channel.ActiveDays = days
 	default:
 		return fmt.Errorf("invalid configuration type. Use 'time' or 'days'")
 	}
 
-	return s.channelRepo.Update(channel)
+	return s.dm.Channel().Update(channel)
 }
 
-func (s *rotationService) GetChannelConfig(channelID int) (*entity.Channel, error) {
-	channel, err := s.channelRepo.GetByID(channelID)
+func (s *rotationService) GetChannelConfig(channelID int64) (*entity.Channel, error) {
+	channel, err := s.dm.Channel().GetByID(channelID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get channel: %w", err)
 	}
-	
+
 	if channel == nil {
 		return nil, fmt.Errorf("channel not found")
 	}
-	
+
+	// ActiveDays is automatically loaded by the repository from JSON
+
 	return channel, nil
 }
 
-func parseDays(input string) []string {
-	// ISO 8601 standard: 1=Monday, 2=Tuesday, ..., 7=Sunday
-	dayMap := map[string]string{
-		"1": "Monday",
-		"2": "Tuesday",
-		"3": "Wednesday",
-		"4": "Thursday",
-		"5": "Friday",
-		"6": "Saturday",
-		"7": "Sunday",
-	}
-
-	parts := strings.Split(strings.ToLower(input), ",")
-	var days []string
+func parseDays(input string) []int {
+	parts := strings.Split(strings.TrimSpace(input), ",")
+	var days []int
 
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		if day, ok := dayMap[part]; ok {
-			days = append(days, day)
+		if dayNum, ok := domain.WeekdayNumbers[part]; ok {
+			days = append(days, dayNum)
 		}
 	}
 
-	// Sort days in week order
-	weekOrder := []string{"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
-	sort.Slice(days, func(i, j int) bool {
-		iIndex := indexOf(weekOrder, days[i])
-		jIndex := indexOf(weekOrder, days[j])
-		return iIndex < jIndex
-	})
-
+	// Sort days in week order (1-7)
+	sort.Ints(days)
 	return days
 }
 
-func indexOf(slice []string, item string) int {
-	for i, v := range slice {
-		if v == item {
-			return i
-		}
-	}
-	return -1
-}
+// indexOf function removed - no longer needed with int sorting
 
 func (s *rotationService) GetChannelStatus(channelID int) (*entity.Channel, error) {
 	// This would need adjustment to get by ID instead of SlackID

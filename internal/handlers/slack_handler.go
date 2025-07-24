@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/diegoclair/slack-rotation-bot/internal/domain"
+	"github.com/diegoclair/slack-rotation-bot/internal/domain/entity"
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/service"
 	slackcmd "github.com/diegoclair/slack-rotation-bot/internal/domain/slack"
 	"github.com/slack-go/slack"
@@ -16,11 +19,11 @@ import (
 
 type SlackHandler struct {
 	slackClient     *slack.Client
-	services *service.Services
+	services *service.Instance
 	signingSecret   string
 }
 
-func New(slackClient *slack.Client, services *service.Services, signingSecret string) *SlackHandler {
+func New(slackClient *slack.Client, services *service.Instance, signingSecret string) *SlackHandler {
 	return &SlackHandler{
 		slackClient:     slackClient,
 		services: services,
@@ -77,24 +80,24 @@ func (h *SlackHandler) HandleSlashCommand(w http.ResponseWriter, r *http.Request
 	}
 
 	// Handle command
-	response := h.handleCommand(cmd, &s)
+	response := h.handleCommand(r.Context(), cmd, &s)
 	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-func (h *SlackHandler) handleCommand(cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
+func (h *SlackHandler) handleCommand(ctx context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	switch cmd.Type {
 	case slackcmd.CmdAdd:
-		return h.handleAddUser(cmd, slashCmd)
+		return h.handleAddUser(ctx, cmd, slashCmd)
 	case slackcmd.CmdRemove:
-		return h.handleRemoveUser(cmd, slashCmd)
+		return h.handleRemoveUser(ctx, cmd, slashCmd)
 	case slackcmd.CmdList:
-		return h.handleListUsers(slashCmd)
+		return h.handleListUsers(ctx, slashCmd)
 	case slackcmd.CmdConfig:
-		return h.handleConfig(cmd, slashCmd)
+		return h.handleConfig(ctx, cmd, slashCmd)
 	case slackcmd.CmdNext:
-		return h.handleNext(slashCmd)
+		return h.handleNext(ctx, slashCmd)
 	case slackcmd.CmdPause:
 		return h.handlePause(slashCmd)
 	case slackcmd.CmdResume:
@@ -109,7 +112,7 @@ func (h *SlackHandler) handleCommand(cmd *slackcmd.Command, slashCmd *slack.Slas
 }
 
 
-func (h *SlackHandler) handleAddUser(cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
+func (h *SlackHandler) handleAddUser(ctx context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
 		return h.createErrorResponse("Please mention the user: `/rotation add @user`")
 	}
@@ -129,8 +132,8 @@ func (h *SlackHandler) handleAddUser(cmd *slackcmd.Command, slashCmd *slack.Slas
 	
 	log.Printf("DEBUG: Extracted user ID: %s", userID)
 
-	// Get channel
-	channel, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+	// Get channel with feedback
+	channel, feedback, err := h.setupChannelWithFeedback(slashCmd)
 	if err != nil {
 		log.Printf("ERROR setting up channel: %v", err)
 		return h.createErrorResponse("Error checking channel")
@@ -155,7 +158,7 @@ func (h *SlackHandler) handleAddUser(cmd *slackcmd.Command, slashCmd *slack.Slas
 		}
 	}
 
-	responseText := fmt.Sprintf("✅ %s has been added to the rotation!", userName)
+	responseText := feedback + fmt.Sprintf("✅ %s has been added to the rotation!", userName)
 
 	return &slack.Msg{
 		ResponseType: slack.ResponseTypeInChannel,
@@ -163,7 +166,7 @@ func (h *SlackHandler) handleAddUser(cmd *slackcmd.Command, slashCmd *slack.Slas
 	}
 }
 
-func (h *SlackHandler) handleRemoveUser(cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
+func (h *SlackHandler) handleRemoveUser(ctx context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
 		return h.createErrorResponse("Please mention the user: `/rotation remove @user`")
 	}
@@ -179,8 +182,8 @@ func (h *SlackHandler) handleRemoveUser(cmd *slackcmd.Command, slashCmd *slack.S
 		userID = userID[:idx]
 	}
 
-	// Get channel
-	channel, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+	// Get channel with feedback
+	channel, feedback, err := h.setupChannelWithFeedback(slashCmd)
 	if err != nil {
 		return h.createErrorResponse("Error checking channel")
 	}
@@ -203,15 +206,16 @@ func (h *SlackHandler) handleRemoveUser(cmd *slackcmd.Command, slashCmd *slack.S
 		}
 	}
 
+	responseText := feedback + fmt.Sprintf("✅ %s has been removed from the rotation.", userName)
 	return &slack.Msg{
 		ResponseType: slack.ResponseTypeInChannel,
-		Text:         fmt.Sprintf("✅ %s has been removed from the rotation.", userName),
+		Text:         responseText,
 	}
 }
 
-func (h *SlackHandler) handleListUsers(slashCmd *slack.SlashCommand) *slack.Msg {
-	// Get channel
-	channel, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+func (h *SlackHandler) handleListUsers(ctx context.Context, slashCmd *slack.SlashCommand) *slack.Msg {
+	// Get channel with feedback
+	channel, feedback, err := h.setupChannelWithFeedback(slashCmd)
 	if err != nil {
 		return h.createErrorResponse("Error checking channel")
 	}
@@ -230,7 +234,7 @@ func (h *SlackHandler) handleListUsers(slashCmd *slack.SlashCommand) *slack.Msg 
 	}
 
 	var userList strings.Builder
-	userList.WriteString("*Members in rotation:*\n")
+	userList.WriteString(feedback + "*Members in rotation:*\n")
 	for i, user := range users {
 		userList.WriteString(fmt.Sprintf("%d. %s\n", i+1, user.GetDisplayName()))
 	}
@@ -242,9 +246,9 @@ func (h *SlackHandler) handleListUsers(slashCmd *slack.SlashCommand) *slack.Msg 
 }
 
 
-func (h *SlackHandler) handleNext(slashCmd *slack.SlashCommand) *slack.Msg {
-	// Get channel
-	channel, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+func (h *SlackHandler) handleNext(ctx context.Context, slashCmd *slack.SlashCommand) *slack.Msg {
+	// Get channel with feedback
+	channel, feedback, err := h.setupChannelWithFeedback(slashCmd)
 	if err != nil {
 		return h.createErrorResponse("Error checking channel")
 	}
@@ -256,24 +260,25 @@ func (h *SlackHandler) handleNext(slashCmd *slack.SlashCommand) *slack.Msg {
 	}
 
 	// Record new presenter
-	if err := h.services.Rotation.RecordPresentation(channel.ID, nextUser.ID); err != nil {
+	if err := h.services.Rotation.RecordPresentation(ctx, channel.ID, nextUser.ID); err != nil {
 		return h.createErrorResponse("Error recording new presenter")
 	}
 
+	responseText := feedback + fmt.Sprintf("⏭️ Skipping to next presenter: <@%s>", nextUser.SlackUserID)
 	return &slack.Msg{
 		ResponseType: slack.ResponseTypeInChannel,
-		Text:         fmt.Sprintf("⏭️ Skipping to next presenter: <@%s>", nextUser.SlackUserID),
+		Text:         responseText,
 	}
 }
 
-func (h *SlackHandler) handleConfig(cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
+func (h *SlackHandler) handleConfig(ctx context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
 		return h.createErrorResponse("Use: `/rotation config time HH:MM` or `/rotation config days 1,2,4,5`")
 	}
 
 	if cmd.Args[0] == "show" {
-		// Get channel
-		channel, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+		// Get channel with feedback
+		channel, feedback, err := h.setupChannelWithFeedback(slashCmd)
 		if err != nil {
 			return h.createErrorResponse("Error checking channel")
 		}
@@ -284,19 +289,21 @@ func (h *SlackHandler) handleConfig(cmd *slackcmd.Command, slashCmd *slack.Slash
 			return h.createErrorResponse(fmt.Sprintf("Error getting configuration: %v", err))
 		}
 
-		// Parse active days from JSON for display
-		var activeDays []string
-		if err := json.Unmarshal([]byte(config.ActiveDays), &activeDays); err != nil {
-			activeDays = []string{"Error parsing days"}
+		// Convert active days from ISO numbers to names for display
+		var activeDaysNames []string
+		for _, dayNum := range config.ActiveDays {
+			if dayName, ok := domain.WeekdayNames[dayNum]; ok {
+				activeDaysNames = append(activeDaysNames, dayName)
+			}
 		}
 
-		configText := fmt.Sprintf("📋 *Current Configuration for #%s*\n\n"+
+		configText := feedback + fmt.Sprintf("📋 *Current Configuration for #%s*\n\n"+
 			"⏰ *Notification Time:* %s\n"+
 			"📅 *Active Days:* %s\n"+
 			"🔔 *Channel Status:* %s",
 			config.SlackChannelName,
 			config.NotificationTime,
-			strings.Join(activeDays, ", "),
+			strings.Join(activeDaysNames, ", "),
 			func() string {
 				if config.IsActive {
 					return "Active"
@@ -318,8 +325,8 @@ func (h *SlackHandler) handleConfig(cmd *slackcmd.Command, slashCmd *slack.Slash
 	configType := cmd.Args[0]
 	configValue := strings.Join(cmd.Args[1:], " ")
 
-	// Get channel
-	channel, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+	// Get channel with feedback
+	channel, feedback, err := h.setupChannelWithFeedback(slashCmd)
 	if err != nil {
 		return h.createErrorResponse("Error checking channel")
 	}
@@ -328,9 +335,10 @@ func (h *SlackHandler) handleConfig(cmd *slackcmd.Command, slashCmd *slack.Slash
 		return h.createErrorResponse(fmt.Sprintf("Error updating configuration: %v", err))
 	}
 
+	responseText := feedback + fmt.Sprintf("✅ Configuration updated: %s = %s", configType, configValue)
 	return &slack.Msg{
 		ResponseType: slack.ResponseTypeEphemeral,
-		Text:         fmt.Sprintf("✅ Configuration updated: %s = %s", configType, configValue),
+		Text:         responseText,
 	}
 }
 
@@ -363,6 +371,23 @@ func (h *SlackHandler) createErrorResponse(message string) *slack.Msg {
 		ResponseType: slack.ResponseTypeEphemeral,
 		Text:         fmt.Sprintf("❌ %s", message),
 	}
+}
+
+// setupChannelWithFeedback handles channel setup and provides feedback if auto-configured
+func (h *SlackHandler) setupChannelWithFeedback(slashCmd *slack.SlashCommand) (*entity.Channel, string, error) {
+	channel, wasCreated, err := h.services.Rotation.SetupChannel(slashCmd.ChannelID, slashCmd.ChannelName, slashCmd.TeamID)
+	if err != nil {
+		return nil, "", err
+	}
+	
+	var feedback string
+	if wasCreated {
+		feedback = "✅ *Channel configured automatically with default settings:*\n" +
+			"⏰ Time: 09:00 | 📅 Days: Mon, Tue, Wed, Thu, Fri\n" +
+			"Use `/rotation config show` to view or `/rotation config` to customize.\n\n"
+	}
+	
+	return channel, feedback, nil
 }
 
 func (h *SlackHandler) respondWithError(w http.ResponseWriter, message string) {

@@ -35,12 +35,13 @@ func main() {
 
 	slackClient := slack.New(cfg.SlackBotToken)
 
-	services := service.New(db, slackClient)
+	dataManager := database.NewInstance(db)
+	serviceInstance := service.NewInstance(dataManager, slackClient)
 
-	services.Scheduler.Start()
-	defer services.Scheduler.Stop()
+	serviceInstance.Scheduler.Start()
+	defer serviceInstance.Scheduler.Stop()
 
-	handler := handlers.New(slackClient, services, cfg.SlackSigningSecret)
+	handler := handlers.New(slackClient, serviceInstance, cfg.SlackSigningSecret)
 
 	http.HandleFunc("/slack/commands", handler.HandleSlashCommand)
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
