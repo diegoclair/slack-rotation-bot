@@ -116,23 +116,8 @@ func (h *SlackHandler) handleCommand(ctx context.Context, cmd *slackcmd.Command,
 
 func (h *SlackHandler) handleAddUser(_ context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
-		return h.createErrorResponse("Please mention the user: `/rotation add @user`")
+		return h.createErrorResponse("Please mention at least one user: `/rotation add @user1 @user2`")
 	}
-
-	// Extract user ID from mention <@U12345> or <@U12345|username>
-	userMention := cmd.Args[0]
-	log.Printf("DEBUG: Raw user mention: %s", userMention)
-
-	userID := strings.TrimSpace(userMention)
-	userID = strings.TrimPrefix(userID, "<@")
-	userID = strings.TrimSuffix(userID, ">")
-
-	// Handle format <@U12345|username> - take only the ID part
-	if idx := strings.Index(userID, "|"); idx != -1 {
-		userID = userID[:idx]
-	}
-
-	log.Printf("DEBUG: Extracted user ID: %s", userID)
 
 	// Get channel with feedback
 	channel, feedback, err := h.setupChannelWithFeedback(slashCmd)
@@ -141,47 +126,78 @@ func (h *SlackHandler) handleAddUser(_ context.Context, cmd *slackcmd.Command, s
 		return h.createErrorResponse("Error checking channel")
 	}
 
-	// Add user
-	if err := h.rotationService.AddUser(channel.ID, userID); err != nil {
-		log.Printf("ERROR adding user %s: %v", userID, err)
-		return h.createErrorResponse(fmt.Sprintf("Error adding user: %v", err))
+	var addedUsers []string
+	var failedUsers []string
+
+	// Process each user mention
+	for _, userMention := range cmd.Args {
+		log.Printf("DEBUG: Raw user mention: %s", userMention)
+
+		// Extract user ID from mention <@U12345> or <@U12345|username>
+		userID := strings.TrimSpace(userMention)
+		userID = strings.TrimPrefix(userID, "<@")
+		userID = strings.TrimSuffix(userID, ">")
+
+		// Handle format <@U12345|username> - take only the ID part
+		if idx := strings.Index(userID, "|"); idx != -1 {
+			userID = userID[:idx]
+		}
+
+		log.Printf("DEBUG: Extracted user ID: %s", userID)
+
+		// Add user
+		if err := h.rotationService.AddUser(channel.ID, userID); err != nil {
+			log.Printf("ERROR adding user %s: %v", userID, err)
+			// For failures, try to get the user's display name
+			displayName := h.getUserDisplayName(userID, userMention)
+			failedUsers = append(failedUsers, displayName)
+			continue
+		}
+
+		// For successful adds, use @mention to notify the user
+		addedUsers = append(addedUsers, fmt.Sprintf("<@%s>", userID))
 	}
 
-	// Get user info for display name
-	userInfo, err := h.slackClient.GetUserInfo(userID)
-	userName := userID // fallback
-	if err == nil {
-		userName = userInfo.Profile.RealName
-		if userName == "" {
-			userName = userInfo.Profile.DisplayName
-		}
-		if userName == "" {
-			userName = userInfo.Name
+	// Build response message
+	var responseText strings.Builder
+	responseText.WriteString(feedback)
+
+	if len(addedUsers) > 0 {
+		if len(addedUsers) == 1 {
+			responseText.WriteString(fmt.Sprintf("✅ %s has been added to the rotation!", addedUsers[0]))
+		} else {
+			responseText.WriteString(fmt.Sprintf("✅ %d users added to the rotation: %s", len(addedUsers), strings.Join(addedUsers, ", ")))
 		}
 	}
 
-	responseText := feedback + fmt.Sprintf("✅ %s has been added to the rotation!", userName)
+	if len(failedUsers) > 0 {
+		if len(addedUsers) > 0 {
+			responseText.WriteString("\n")
+		}
+		if len(failedUsers) == 1 {
+			responseText.WriteString(fmt.Sprintf("❌ Failed to add: %s", failedUsers[0]))
+		} else {
+			responseText.WriteString(fmt.Sprintf("❌ Failed to add %d users: %s", len(failedUsers), strings.Join(failedUsers, ", ")))
+		}
+	}
+
+	// If all users failed, use ephemeral response with the detailed error message
+	if len(addedUsers) == 0 {
+		return &slack.Msg{
+			ResponseType: slack.ResponseTypeEphemeral,
+			Text:         responseText.String(),
+		}
+	}
 
 	return &slack.Msg{
 		ResponseType: slack.ResponseTypeInChannel,
-		Text:         responseText,
+		Text:         responseText.String(),
 	}
 }
 
 func (h *SlackHandler) handleRemoveUser(_ context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
-		return h.createErrorResponse("Please mention the user: `/rotation remove @user`")
-	}
-
-	// Extract user ID from mention <@U12345> or <@U12345|username>
-	userMention := cmd.Args[0]
-	userID := strings.TrimSpace(userMention)
-	userID = strings.TrimPrefix(userID, "<@")
-	userID = strings.TrimSuffix(userID, ">")
-
-	// Handle format <@U12345|username> - take only the ID part
-	if idx := strings.Index(userID, "|"); idx != -1 {
-		userID = userID[:idx]
+		return h.createErrorResponse("Please mention at least one user: `/rotation remove @user1 @user2`")
 	}
 
 	// Get channel with feedback
@@ -190,28 +206,80 @@ func (h *SlackHandler) handleRemoveUser(_ context.Context, cmd *slackcmd.Command
 		return h.createErrorResponse("Error checking channel")
 	}
 
-	// Remove user
-	if err := h.rotationService.RemoveUser(channel.ID, userID); err != nil {
-		return h.createErrorResponse(fmt.Sprintf("Error removing user: %v", err))
+	var removedUsers []string
+	var failedUsers []string
+
+	// Process each user mention
+	for _, userMention := range cmd.Args {
+		// Extract user ID from mention <@U12345> or <@U12345|username>
+		userID := strings.TrimSpace(userMention)
+		userID = strings.TrimPrefix(userID, "<@")
+		userID = strings.TrimSuffix(userID, ">")
+
+		// Handle format <@U12345|username> - take only the ID part
+		if idx := strings.Index(userID, "|"); idx != -1 {
+			userID = userID[:idx]
+		}
+
+		// Remove user
+		if err := h.rotationService.RemoveUser(channel.ID, userID); err != nil {
+			log.Printf("ERROR removing user %s: %v", userID, err)
+			// For failures, try to get the user's display name
+			displayName := h.getUserDisplayName(userID, userMention)
+			failedUsers = append(failedUsers, displayName)
+			continue
+		}
+
+		// Get user info for display name (no @ mention for removes)
+		userInfo, err := h.slackClient.GetUserInfo(userID)
+		userName := userID // fallback
+		if err == nil {
+			userName = userInfo.Profile.RealName
+			if userName == "" {
+				userName = userInfo.Profile.DisplayName
+			}
+			if userName == "" {
+				userName = userInfo.Name
+			}
+		}
+
+		removedUsers = append(removedUsers, userName)
 	}
 
-	// Get user info for display name
-	userInfo, err := h.slackClient.GetUserInfo(userID)
-	userName := userID // fallback
-	if err == nil {
-		userName = userInfo.Profile.RealName
-		if userName == "" {
-			userName = userInfo.Profile.DisplayName
-		}
-		if userName == "" {
-			userName = userInfo.Name
+	// Build response message
+	var responseText strings.Builder
+	responseText.WriteString(feedback)
+
+	if len(removedUsers) > 0 {
+		if len(removedUsers) == 1 {
+			responseText.WriteString(fmt.Sprintf("✅ %s has been removed from the rotation.", removedUsers[0]))
+		} else {
+			responseText.WriteString(fmt.Sprintf("✅ %d users removed from the rotation: %s", len(removedUsers), strings.Join(removedUsers, ", ")))
 		}
 	}
 
-	responseText := feedback + fmt.Sprintf("✅ %s has been removed from the rotation.", userName)
+	if len(failedUsers) > 0 {
+		if len(removedUsers) > 0 {
+			responseText.WriteString("\n")
+		}
+		if len(failedUsers) == 1 {
+			responseText.WriteString(fmt.Sprintf("❌ Failed to remove: %s", failedUsers[0]))
+		} else {
+			responseText.WriteString(fmt.Sprintf("❌ Failed to remove %d users: %s", len(failedUsers), strings.Join(failedUsers, ", ")))
+		}
+	}
+
+	// If all users failed, use ephemeral response with the detailed error message
+	if len(removedUsers) == 0 {
+		return &slack.Msg{
+			ResponseType: slack.ResponseTypeEphemeral,
+			Text:         responseText.String(),
+		}
+	}
+
 	return &slack.Msg{
 		ResponseType: slack.ResponseTypeInChannel,
-		Text:         responseText,
+		Text:         responseText.String(),
 	}
 }
 
@@ -611,4 +679,33 @@ func (h *SlackHandler) respondWithError(w http.ResponseWriter, message string) {
 	if err != nil {
 		log.Printf("ERROR encoding json response: %v", err)
 	}
+}
+
+// getUserDisplayName attempts to get the best display name for a user
+// Falls back through: API real name → API display name → API username → mention username → user ID
+func (h *SlackHandler) getUserDisplayName(userID, userMention string) string {
+	// Try to get user info from Slack API
+	if userInfo, err := h.slackClient.GetUserInfo(userID); err == nil {
+		if userInfo.Profile.RealName != "" {
+			return userInfo.Profile.RealName
+		}
+		if userInfo.Profile.DisplayName != "" {
+			return userInfo.Profile.DisplayName
+		}
+		if userInfo.Name != "" {
+			return userInfo.Name
+		}
+	}
+
+	// Fallback to extract username from mention format <@U12345|username>
+	mention := strings.TrimPrefix(strings.TrimSuffix(userMention, ">"), "<@")
+	if idx := strings.Index(mention, "|"); idx != -1 {
+		username := mention[idx+1:]
+		if username != "" {
+			return username
+		}
+	}
+
+	// Last resort: return the user ID
+	return userID
 }

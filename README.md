@@ -46,9 +46,9 @@ Slack Rotation Bot automatically manages people rotation for any recurring team 
 
 ### Manage Members
 ```bash
-/rotation add @user         # Add member to rotation
-/rotation remove @user      # Remove member from rotation
-/rotation list              # List all active members in rotation
+/rotation add @user1 @user2  # Add one or more members to rotation
+/rotation remove @user1 @user2  # Remove one or more members from rotation
+/rotation list               # List all active members in rotation
 ```
 
 ### Configuration

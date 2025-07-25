@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -60,19 +61,6 @@ func TestSlackHandler_HandleSlashCommand_AddUser(t *testing.T) {
 				m.RotationServiceMock.EXPECT().
 					AddUser(int64(1), "U123456789").
 					Return(nil).Times(1)
-
-				// Mock GetUserInfo call
-				userInfo := &slack.User{
-					ID:   "U123456789",
-					Name: "testuser",
-					Profile: slack.UserProfile{
-						RealName:    "Test User",
-						DisplayName: "Test Display",
-					},
-				}
-				m.SlackClientMock.EXPECT().
-					GetUserInfo("U123456789").
-					Return(userInfo, nil).Times(1)
 			},
 			checkResponse: func(t *testing.T, resp *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusOK, resp.Code)
@@ -82,7 +70,50 @@ func TestSlackHandler_HandleSlashCommand_AddUser(t *testing.T) {
 				require.NoError(t, err)
 
 				assert.Equal(t, slack.ResponseTypeInChannel, response.ResponseType)
-				assert.Contains(t, response.Text, "✅ Test User has been added to the rotation!")
+				assert.Contains(t, response.Text, "✅ <@U123456789> has been added to the rotation!")
+			},
+		},
+		{
+			name: "Should add multiple users successfully",
+			args: args{
+				command:     "/rotation",
+				text:        "add <@U123456789|testuser> <@U987654321|testuser2>",
+				channelID:   "C123456789",
+				channelName: "test-channel",
+				userID:      "U987654321",
+				teamID:      "T123456789",
+			},
+			buildMocks: func(ctx context.Context, m test.ServiceMocks, args args) {
+				channel := &entity.Channel{
+					ID:               1,
+					SlackChannelID:   args.channelID,
+					SlackChannelName: args.channelName,
+					SlackTeamID:      args.teamID,
+					IsActive:         true,
+				}
+
+				// Mock SetupChannel call
+				m.RotationServiceMock.EXPECT().
+					SetupChannel(args.channelID, args.channelName, args.teamID).
+					Return(channel, false, nil).Times(1)
+
+				// Mock AddUser calls for both users
+				m.RotationServiceMock.EXPECT().
+					AddUser(int64(1), "U123456789").
+					Return(nil).Times(1)
+				m.RotationServiceMock.EXPECT().
+					AddUser(int64(1), "U987654321").
+					Return(nil).Times(1)
+			},
+			checkResponse: func(t *testing.T, resp *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, resp.Code)
+
+				var response slack.Msg
+				err := json.Unmarshal(resp.Body.Bytes(), &response)
+				require.NoError(t, err)
+
+				assert.Equal(t, slack.ResponseTypeInChannel, response.ResponseType)
+				assert.Contains(t, response.Text, "✅ 2 users added to the rotation: <@U123456789>, <@U987654321>")
 			},
 		},
 		{
@@ -103,7 +134,60 @@ func TestSlackHandler_HandleSlashCommand_AddUser(t *testing.T) {
 				require.NoError(t, err)
 
 				assert.Equal(t, slack.ResponseTypeEphemeral, response.ResponseType)
-				assert.Contains(t, response.Text, "❌ Please mention the user: `/rotation add @user`")
+				assert.Contains(t, response.Text, "❌ Please mention at least one user: `/rotation add @user1 @user2`")
+			},
+		},
+		{
+			name: "Should show user display name in error message when add fails",
+			args: args{
+				command:     "/rotation",
+				text:        "add <@U123456789|testuser>",
+				channelID:   "C123456789",
+				channelName: "test-channel",
+				userID:      "U987654321",
+				teamID:      "T123456789",
+			},
+			buildMocks: func(ctx context.Context, m test.ServiceMocks, args args) {
+				channel := &entity.Channel{
+					ID:               1,
+					SlackChannelID:   args.channelID,
+					SlackChannelName: args.channelName,
+					SlackTeamID:      args.teamID,
+					IsActive:         true,
+				}
+
+				// Mock SetupChannel call
+				m.RotationServiceMock.EXPECT().
+					SetupChannel(args.channelID, args.channelName, args.teamID).
+					Return(channel, false, nil).Times(1)
+
+				// Mock AddUser call to fail
+				m.RotationServiceMock.EXPECT().
+					AddUser(int64(1), "U123456789").
+					Return(errors.New("user already exists")).Times(1)
+
+				// Mock GetUserInfo call for error case
+				userInfo := &slack.User{
+					ID:   "U123456789",
+					Name: "testuser",
+					Profile: slack.UserProfile{
+						RealName:    "João Silva",
+						DisplayName: "joao.silva",
+					},
+				}
+				m.SlackClientMock.EXPECT().
+					GetUserInfo("U123456789").
+					Return(userInfo, nil).Times(1)
+			},
+			checkResponse: func(t *testing.T, resp *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, resp.Code)
+
+				var response slack.Msg
+				err := json.Unmarshal(resp.Body.Bytes(), &response)
+				require.NoError(t, err)
+
+				assert.Equal(t, slack.ResponseTypeEphemeral, response.ResponseType)
+				assert.Contains(t, response.Text, "❌ Failed to add: João Silva")
 			},
 		},
 	}
@@ -406,6 +490,67 @@ func TestSlackHandler_HandleSlashCommand_RemoveUser(t *testing.T) {
 		buildMocks    func(ctx context.Context, m test.ServiceMocks, args args)
 		checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder)
 	}{
+		{
+			name: "Should remove multiple users successfully",
+			args: args{
+				command:     "/rotation",
+				text:        "remove <@U123456789|testuser> <@U987654321|testuser2>",
+				channelID:   "C123456789",
+				channelName: "test-channel",
+				userID:      "U555555555",
+				teamID:      "T123456789",
+			},
+			buildMocks: func(ctx context.Context, m test.ServiceMocks, args args) {
+				channel := &entity.Channel{
+					ID:               1,
+					SlackChannelID:   args.channelID,
+					SlackChannelName: args.channelName,
+					SlackTeamID:      args.teamID,
+					IsActive:         true,
+				}
+
+				// Mock SetupChannel call
+				m.RotationServiceMock.EXPECT().
+					SetupChannel(args.channelID, args.channelName, args.teamID).
+					Return(channel, false, nil).Times(1)
+
+				// Mock RemoveUser calls for both users
+				m.RotationServiceMock.EXPECT().
+					RemoveUser(int64(1), "U123456789").
+					Return(nil).Times(1)
+				m.RotationServiceMock.EXPECT().
+					RemoveUser(int64(1), "U987654321").
+					Return(nil).Times(1)
+
+				// Mock GetUserInfo calls
+				userInfo1 := &slack.User{
+					ID:      "U123456789",
+					Name:    "testuser",
+					Profile: slack.UserProfile{RealName: "Test User 1"},
+				}
+				userInfo2 := &slack.User{
+					ID:      "U987654321",
+					Name:    "testuser2",
+					Profile: slack.UserProfile{RealName: "Test User 2"},
+				}
+				m.SlackClientMock.EXPECT().
+					GetUserInfo("U123456789").
+					Return(userInfo1, nil).Times(1)
+				m.SlackClientMock.EXPECT().
+					GetUserInfo("U987654321").
+					Return(userInfo2, nil).Times(1)
+			},
+			checkResponse: func(t *testing.T, resp *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, resp.Code)
+
+				var response slack.Msg
+				err := json.Unmarshal(resp.Body.Bytes(), &response)
+				require.NoError(t, err)
+
+				assert.Equal(t, slack.ResponseTypeInChannel, response.ResponseType)
+				assert.Contains(t, response.Text, "✅ 2 users removed from the rotation: Test User 1, Test User 2")
+			},
+		},
 		{
 			name: "Should remove user successfully",
 			args: args{

@@ -88,11 +88,11 @@ func GetHelpText() string {
 • ` + "`/rotation config show`" + ` - Display current channel settings
 
 *👥 Member Management:*
-• ` + "`/rotation add @user`" + ` - Add someone to the rotation
-  _Example: ` + "`/rotation add @john.doe`" + `_
+• ` + "`/rotation add @user1 @user2 ...`" + ` - Add one or more users to the rotation
+  _Example: ` + "`/rotation add @john.doe @jane.smith`" + `_
   
-• ` + "`/rotation remove @user`" + ` - Remove someone from rotation
-  _Example: ` + "`/rotation remove @jane.smith`" + `_
+• ` + "`/rotation remove @user1 @user2 ...`" + ` - Remove one or more users from rotation
+  _Example: ` + "`/rotation remove @jane.smith @john.doe`" + `_
   
 • ` + "`/rotation list`" + ` - Show all members in rotation order
   _Current person on duty is marked with 👉 and role name_
