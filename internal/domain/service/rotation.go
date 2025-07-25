@@ -234,19 +234,7 @@ func (s *rotationService) UpdateChannelConfig(channelID int64, configType, value
 		scheduler.ActiveDays = days
 	case "role":
 		// Set custom role name
-		cleanValue := strings.TrimSpace(value)
-		if cleanValue == "" {
-			return fmt.Errorf("role cannot be empty. Example: presenter, reviewer, facilitator")
-		}
-		
-		// Remove surrounding quotes if present (both single and double)
-		if (strings.HasPrefix(cleanValue, `"`) && strings.HasSuffix(cleanValue, `"`)) ||
-		   (strings.HasPrefix(cleanValue, `'`) && strings.HasSuffix(cleanValue, `'`)) {
-			cleanValue = cleanValue[1 : len(cleanValue)-1]
-		}
-		
-		// Trim again after removing quotes
-		cleanValue = strings.TrimSpace(cleanValue)
+		cleanValue := cleanRoleName(value)
 		if cleanValue == "" {
 			return fmt.Errorf("role cannot be empty. Example: presenter, reviewer, facilitator")
 		}
@@ -337,4 +325,57 @@ func (s *rotationService) GetChannelStatus(channelID int) (*entity.Channel, erro
 	// This would need adjustment to get by ID instead of SlackID
 	// For now, returning error
 	return nil, fmt.Errorf("not implemented")
+}
+
+// cleanRoleName removes problematic characters from role names
+func cleanRoleName(input string) string {
+	// Trim whitespace
+	cleaned := strings.TrimSpace(input)
+	
+	// Remove common problematic patterns first
+	// Remove patterns like = "text", = 'text', etc.
+	if strings.Contains(cleaned, "=") {
+		// Find the = and take everything after it
+		parts := strings.SplitN(cleaned, "=", 2)
+		if len(parts) == 2 {
+			cleaned = strings.TrimSpace(parts[1])
+		}
+	}
+	
+	// Remove surrounding quotes (single or double) - multiple passes
+	for i := 0; i < 3; i++ { // Multiple passes to handle nested quotes
+		cleaned = strings.TrimSpace(cleaned)
+		if len(cleaned) >= 2 {
+			if (strings.HasPrefix(cleaned, `"`) && strings.HasSuffix(cleaned, `"`)) ||
+			   (strings.HasPrefix(cleaned, `'`) && strings.HasSuffix(cleaned, `'`)) {
+				cleaned = cleaned[1 : len(cleaned)-1]
+			}
+		}
+	}
+	
+	// Remove problematic Unicode characters
+	replacements := map[string]string{
+		"\u201C": "",   // Left double quotation mark - remove completely
+		"\u201D": "",   // Right double quotation mark - remove completely
+		"\u2018": "",   // Left single quotation mark - remove completely
+		"\u2019": "",   // Right single quotation mark - remove completely
+		"\u2013": "-",  // En dash
+		"\u2014": "-",  // Em dash
+		"\u2026": "...", // Horizontal ellipsis
+		"\u00AB": "",   // Left-pointing double angle quotation mark - remove
+		"\u00BB": "",   // Right-pointing double angle quotation mark - remove
+	}
+	
+	for old, new := range replacements {
+		cleaned = strings.ReplaceAll(cleaned, old, new)
+	}
+	
+	// Final cleanup - trim and collapse multiple spaces
+	cleaned = strings.TrimSpace(cleaned)
+	// Replace multiple spaces with single space
+	for strings.Contains(cleaned, "  ") {
+		cleaned = strings.ReplaceAll(cleaned, "  ", " ")
+	}
+	
+	return cleaned
 }
