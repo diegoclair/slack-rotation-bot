@@ -37,7 +37,12 @@ Slack Rotation Bot automatically manages people rotation for any recurring team 
 
 ## Slack Commands
 
-> **Note**: The bot configures itself automatically on first use. No initial setup command required.
+> **Auto-Configuration**: When you first use the bot in a channel, it automatically sets up with default values:
+> - ⏰ **Time**: 09:00 (9:00 AM UTC)
+> - 📅 **Days**: Monday through Friday (1,2,3,4,5)
+> - 🎭 **Role**: "On duty"
+> 
+> You can customize these settings anytime using `/rotation config` commands.
 
 ### Manage Members
 ```bash
