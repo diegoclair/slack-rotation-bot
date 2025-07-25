@@ -9,8 +9,36 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            cgo: "1"
+            cc: gcc
+            name: slack-rotation-bot-linux-amd64
+          - goos: linux
+            goarch: arm64
+            cgo: "1"
+            cc: aarch64-linux-gnu-gcc
+            name: slack-rotation-bot-linux-arm64
+          - goos: darwin
+            goarch: amd64
+            cgo: "0"
+            cc: ""
+            name: slack-rotation-bot-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            cgo: "0"
+            cc: ""
+            name: slack-rotation-bot-darwin-arm64
+          - goos: windows
+            goarch: amd64
+            cgo: "1"
+            cc: x86_64-w64-mingw32-gcc
+            name: slack-rotation-bot-windows-amd64.exe
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,28 +46,41 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24.5'
+          go-version-file: go.mod
+
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-mingw-w64
+
+      - name: Build binary
+        run: |
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CGO_ENABLED=${{ matrix.cgo }} CC=${{ matrix.cc }} \
+          go build -ldflags="-s -w" -o ${{ matrix.name }} cmd/bot/main.go
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Get version from tag
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Build binaries
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Move binaries to root
         run: |
-          # Build for Linux (amd64)
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-s -w" -o slack-rotation-bot-linux-amd64 cmd/bot/main.go
-          
-          # Build for Linux (arm64)
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=1 go build -ldflags="-s -w" -o slack-rotation-bot-linux-arm64 cmd/bot/main.go
-          
-          # Build for macOS (amd64)
-          GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-s -w" -o slack-rotation-bot-darwin-amd64 cmd/bot/main.go
-          
-          # Build for macOS (arm64 - Apple Silicon)
-          GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -ldflags="-s -w" -o slack-rotation-bot-darwin-arm64 cmd/bot/main.go
-          
-          # Build for Windows (amd64)
-          GOOS=windows GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-s -w" -o slack-rotation-bot-windows-amd64.exe cmd/bot/main.go
+          find . -name "slack-rotation-bot-*" -type f -exec mv {} . \;
 
       - name: Create checksums
         run: |
@@ -64,15 +105,17 @@ jobs:
             2. Build from source following the [DEVELOPMENT.md](https://github.com/diegoclair/slack-rotation-bot/blob/main/DEVELOPMENT.md) guide
             
             ### 🖥️ Platform Support
-            - `linux-amd64`: Linux on Intel/AMD processors
-            - `linux-arm64`: Linux on ARM processors (e.g., AWS Graviton)
-            - `darwin-amd64`: macOS on Intel processors
-            - `darwin-arm64`: macOS on Apple Silicon (M1/M2/M3)
-            - `windows-amd64`: Windows on Intel/AMD processors
+            - `linux-amd64`: Linux on Intel/AMD processors (with CGO)
+            - `linux-arm64`: Linux on ARM processors (with CGO, e.g., AWS Graviton)
+            - `darwin-amd64`: macOS on Intel processors (static binary)
+            - `darwin-arm64`: macOS on Apple Silicon M1/M2/M3 (static binary)
+            - `windows-amd64`: Windows on Intel/AMD processors (with CGO)
             
             ### 🔐 Security
             - Verify downloads using the provided `checksums.txt`
             - All binaries are built with `-ldflags="-s -w"` for optimized size
+            - Linux and Windows binaries include CGO for SQLite performance
+            - macOS binaries are statically compiled for maximum compatibility
             
             ### 📖 Documentation
             - [README.md](https://github.com/diegoclair/slack-rotation-bot/blob/main/README.md) - Setup and usage guide
