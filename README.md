@@ -4,7 +4,26 @@
   <img src="slack-rotation-bot.png" alt="Slack Rotation Bot" width="600" height="600">
 </div>
 
-Bot to manage people rotation in different Slack teams/channels. Useful for dailies, presentations, code reviews, or any activity that requires automatic rotation.
+**Stop the "who's turn is it today?" confusion in your team!**
+
+Slack Rotation Bot automatically manages people rotation for any recurring team activity. No more manual tracking, forgotten turns, or awkward "I think it's your turn" conversations.
+
+## Why Use This Bot?
+
+### Problems It Solves:
+- **👥 Manual tracking headaches** - No more spreadsheets or mental notes about whose turn it is
+- **⏰ Missed rotations** - Automatic daily reminders so no one forgets their turn
+- **🔄 Unfair distribution** - Ensures everyone gets equal participation over time
+- **📋 Multiple team chaos** - Each Slack channel manages its own independent rotation
+- **🎯 Flexibility needs** - Works for daily standups, weekly demos, code reviews, or any team activity
+
+### Real-World Use Cases:
+- **Daily Standups**: Rotate who facilitates the daily standup meeting
+- **Code Reviews**: Fairly distribute code review responsibilities
+- **Demo Presentations**: Take turns presenting in sprint demos
+- **Meeting Notes**: Rotate who takes notes during team meetings
+- **On-Call Duties**: Manage first-responder rotations
+- **Team Building**: Rotate who organizes team activities
 
 > 💡 **Tip**: Use the bot image above (`slack-rotation-bot.png`) as your Slack app icon when setting up the bot in your company's Slack workspace!
 
@@ -56,39 +75,22 @@ Bot to manage people rotation in different Slack teams/channels. Useful for dail
 /rotation help              # Show all available commands
 ```
 
-## Architecture
+## Quick Setup
 
-### Multi-tenancy per Channel
-- Each Slack channel has its own configuration
-- Users are managed per channel
-- Independent rotation history
+Ready to eliminate rotation confusion in your team? Here's how to get started:
 
-### Technologies
-- **Language**: Go
-- **Database**: SQLite
-- **Integration**: Slack API (Slash Commands + Bot)
-- **Scheduler**: Internal Cron
+### Prerequisites
+- Admin access to your Slack workspace
+- A server to host the bot (cloud service, VPS, or local machine)
 
-## Installation
+> 💡 **For developers**: See [DEVELOPMENT.md](DEVELOPMENT.md) for technical setup, architecture details, and local development instructions.
 
-```bash
-# Clone the repository
-git clone https://github.com/diegoclair/slack-rotation-bot
+### Step 1: Download and Deploy
+1. Download the latest release from [GitHub Releases](https://github.com/diegoclair/slack-rotation-bot/releases)
+2. Deploy to your server (Docker, cloud service, or run directly)
+3. Ensure the bot is accessible via HTTPS (required by Slack)
 
-# Install dependencies
-go mod download
-
-# Configure environment variables
-cp .env.example .env
-# Edit .env with your Slack credentials
-
-# Run
-go run cmd/bot/main.go
-```
-
-## Slack Configuration
-
-### Step 1: Create Slack App
+### Step 2: Create Slack App
 1. **Access**: [api.slack.com/apps](https://api.slack.com/apps)
 2. **Click**: green **"Create New App"** button
 3. **Select**: **"From scratch"**
@@ -125,35 +127,12 @@ go run cmd/bot/main.go
 2. **Click**: **"Create New Command"**
 3. **Fill in the fields**:
    - **Command**: `/rotation`
-   - **Request URL**: `https://your-server.com/slack/commands` 
-     - ⚠️ **For local development**: Use ngrok (see next step)
+   - **Request URL**: `https://your-server.com/slack/commands` (replace with your actual server URL)
    - **Short Description**: `Manage people rotation in the team`
    - **Usage Hint**: `add @user | list | config time 09:30`
 4. **Click**: **"Save"**
 
-### Step 6: Configure Webhook for Local Development
-
-**6.1. Install ngrok:**
-- Download at: [ngrok.com/download](https://ngrok.com/download)
-- Or via package manager: `brew install ngrok` (Mac) / `choco install ngrok` (Windows)
-
-**6.2. Run application and ngrok:**
-```bash
-# Terminal 1: Run Go application
-go run cmd/bot/main.go
-
-# Terminal 2: Expose localhost via ngrok  
-ngrok http 3000
-```
-
-**6.3. Update URL in Slack:**
-1. **Copy** the ngrok URL (e.g., `https://abc123.ngrok.io`)
-2. **Go back** to **"Slash Commands"** in Slack App
-3. **Click** on the `/rotation` command to edit it
-4. **Update Request URL** to: `https://abc123.ngrok.io/slack/commands`
-5. **Save**
-
-### Step 7: Configure Environment Variables
+### Step 6: Configure Environment Variables
 
 **Create `.env` file** at project root:
 ```bash
@@ -167,36 +146,58 @@ DATABASE_PATH=./rotation.db
 - `SLACK_BOT_TOKEN`: Token copied in Step 3
 - `SLACK_SIGNING_SECRET`: Secret copied in Step 4
 
-## How to Test
-TODO: add unit tests
+## Getting Started
 
-### Basic Test
+Once your bot is configured and running, test it in any Slack channel:
+
 ```bash
-# Check if application is running
-curl http://localhost:3000/health  # Should return "OK"
+/rotation add @yourself        # Add yourself to the rotation
+/rotation add @teammate        # Add a teammate
+/rotation list                 # See who's in the rotation
+/rotation status               # Check current settings
 ```
 
-### Test in Slack
-After configuration, test in Slack channel:
+## Common Usage Patterns
+
+### Daily Standup Facilitator
 ```bash
-/rotation add @your-user       # Add yourself to rotation
-/rotation list                 # List members
-/rotation config time 09:30    # Set time (for dailies or other schedule)
-/rotation config days 1,2,4,5  # Set active days (Mon-Tue-Thu-Fri)
-/rotation status               # View settings
+/rotation add @alice @bob @charlie @diana
+/rotation config time 09:00              # 9:00 AM daily reminder
+/rotation config days 1,2,3,4,5          # Monday through Friday
+/rotation config role facilitator        # "facilitator today: @alice"
 ```
 
-### Usage Examples
+### Weekly Demo Presentations
 ```bash
-# For daily standup (Monday to Friday)
-/rotation config time 09:00
-/rotation config days 1,2,3,4,5
-
-# For weekly presentations (Friday)
-/rotation config time 14:00
-/rotation config days 5
-
-# For code reviews (Monday, Wednesday, Friday)
-/rotation config time 10:30
-/rotation config days 1,3,5
+/rotation add @team-lead @senior-dev @junior-dev
+/rotation config time 14:00              # 2:00 PM reminder
+/rotation config days 5                  # Fridays only
+/rotation config role presenter          # "presenter today: @team-lead"
 ```
+
+### Code Review Assignments
+```bash
+/rotation add @reviewer1 @reviewer2 @reviewer3
+/rotation config time 10:30              # 10:30 AM reminder
+/rotation config days 1,3,5              # Monday, Wednesday, Friday
+/rotation config role "Code reviewer"    # "Code reviewer today: @reviewer1"
+```
+
+### On-Call Rotation
+```bash
+/rotation add @oncall-eng1 @oncall-eng2 @oncall-eng3
+/rotation config time 08:00              # 8:00 AM handoff
+/rotation config days 1                  # Mondays only (weekly rotation)
+/rotation config role "On call"          # "On call today: @oncall-eng1"
+```
+
+## Support & Contributing
+
+- 📖 **Documentation**: Check [DEVELOPMENT.md](DEVELOPMENT.md) for technical details
+- 🐛 **Bug Reports**: [Open an issue](https://github.com/diegoclair/slack-rotation-bot/issues)
+- 💡 **Feature Requests**: [Start a discussion](https://github.com/diegoclair/slack-rotation-bot/discussions)
+- 🛠️ **Contributing**: Pull requests are welcome! See [DEVELOPMENT.md](DEVELOPMENT.md) for setup instructions
+
+## License
+
+This project is open source and available under the [MIT License](LICENSE).

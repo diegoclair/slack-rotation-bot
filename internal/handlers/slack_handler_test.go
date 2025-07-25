@@ -190,6 +190,18 @@ func TestSlackHandler_HandleSlashCommand_ListUsers(t *testing.T) {
 				m.RotationServiceMock.EXPECT().
 					ListUsers(int64(1)).
 					Return(users, nil).Times(1)
+				
+				// Mock GetCurrentPresenter call
+				m.RotationServiceMock.EXPECT().
+					GetCurrentPresenter(int64(1)).
+					Return(users[0], nil).Times(1)
+				
+				// Mock GetSchedulerConfig call
+				m.RotationServiceMock.EXPECT().
+					GetSchedulerConfig(int64(1)).
+					Return(&entity.Scheduler{
+						Role: "presenter",
+					}, nil).Times(1)
 			},
 			checkResponse: func(t *testing.T, resp *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusOK, resp.Code)
@@ -200,7 +212,7 @@ func TestSlackHandler_HandleSlashCommand_ListUsers(t *testing.T) {
 
 				assert.Equal(t, slack.ResponseTypeEphemeral, response.ResponseType)
 				assert.Contains(t, response.Text, "*Members in rotation:*")
-				assert.Contains(t, response.Text, "1. Test User 1")
+				assert.Contains(t, response.Text, "👉 1. Test User 1 *(presenter today)*")
 				assert.Contains(t, response.Text, "2. Test User 2")
 			},
 		},
@@ -260,10 +272,10 @@ func TestSlackHandler_HandleSlashCommand_Help(t *testing.T) {
 				require.NoError(t, err)
 
 				assert.Equal(t, slack.ResponseTypeEphemeral, response.ResponseType)
-				assert.Contains(t, response.Text, "*Available Commands:*")
-				assert.Contains(t, response.Text, "*Configuration:*")
-				assert.Contains(t, response.Text, "*Manage Members:*")
-				assert.Contains(t, response.Text, "*Control:*")
+				assert.Contains(t, response.Text, "*🔄 People Rotation Bot - Commands*")
+				assert.Contains(t, response.Text, "*⚙️ Configuration:*")
+				assert.Contains(t, response.Text, "*👥 Member Management:*")
+				assert.Contains(t, response.Text, "*⏸️ Notification Control:*")
 			},
 		},
 	}

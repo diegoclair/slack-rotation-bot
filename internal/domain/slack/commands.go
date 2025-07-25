@@ -71,24 +71,40 @@ func ParseCommand(text string) (*Command, error) {
 }
 
 func GetHelpText() string {
-	return `*Available Commands:*
+	return `*🔄 People Rotation Bot - Commands*
 
-*Configuration:*
-• ` + "`/rotation config time HH:MM`" + ` - Set notification time (ex: 09:30)
-• ` + "`/rotation config days 1,2,4,5`" + ` - Set active days (1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun)
-• ` + "`/rotation config role NAME`" + ` - Set role name (ex: presenter → "presenter today") - default: "On duty today"
-• ` + "`/rotation config show`" + ` - Show current settings
+*⚙️ Configuration:*
+• ` + "`/rotation config time HH:MM`" + ` - Set daily notification time (24-hour format, UTC)
+  _Example: ` + "`/rotation config time 09:30`" + ` for 9:30 AM UTC or ` + "`/rotation config time 14:00`" + ` for 2:00 PM UTC_
+  
+• ` + "`/rotation config days 1,2,3,4,5`" + ` - Choose active weekdays
+  _Days: 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun_
+  _Example: ` + "`/rotation config days 1,3,5`" + ` (Mon, Wed, Fri only)_
+  
+• ` + "`/rotation config role NAME`" + ` - Set custom role name
+  _Example: ` + "`/rotation config role presenter`" + ` → "presenter today: @user"_
+  _Default: "On duty" → "On duty today: @user"_
+  
+• ` + "`/rotation config show`" + ` - Display current channel settings
 
-*Manage Members:*
-• ` + "`/rotation add @user`" + ` - Add member to rotation
-• ` + "`/rotation remove @user`" + ` - Remove member from rotation
-• ` + "`/rotation list`" + ` - List all members
+*👥 Member Management:*
+• ` + "`/rotation add @user`" + ` - Add someone to the rotation
+  _Example: ` + "`/rotation add @john.doe`" + `_
+  
+• ` + "`/rotation remove @user`" + ` - Remove someone from rotation
+  _Example: ` + "`/rotation remove @jane.smith`" + `_
+  
+• ` + "`/rotation list`" + ` - Show all members in rotation order
+  _Current person on duty is marked with 👉 and role name_
 
-*Rotation:*
-• ` + "`/rotation next`" + ` - Skip to next presenter
+*🎯 Rotation Control:*
+• ` + "`/rotation next`" + ` - Manually skip to next person
+  _Use when current person is unavailable (vacation, sick, etc.)_
 
-*Control:*
-• ` + "`/rotation pause`" + ` - Pause automatic notifications
-• ` + "`/rotation resume`" + ` - Resume automatic notifications
-• ` + "`/rotation status`" + ` - Show bot status for this channel`
+*⏸️ Notification Control:*
+• ` + "`/rotation pause`" + ` - Temporarily stop daily notifications
+• ` + "`/rotation resume`" + ` - Restart daily notifications  
+• ` + "`/rotation status`" + ` - Check if bot is active & see current settings
+
+💡 *Quick Start:* Just add members with ` + "`/rotation add @user`" + ` and the bot auto-configures with defaults (9 AM, Mon-Fri)`
 }

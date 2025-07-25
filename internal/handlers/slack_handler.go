@@ -83,7 +83,10 @@ func (h *SlackHandler) HandleSlashCommand(w http.ResponseWriter, r *http.Request
 	response := h.handleCommand(r.Context(), cmd, &s)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Printf("ERROR encoding json response: %v", err)
+	}
 }
 
 func (h *SlackHandler) handleCommand(ctx context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
@@ -111,7 +114,7 @@ func (h *SlackHandler) handleCommand(ctx context.Context, cmd *slackcmd.Command,
 	}
 }
 
-func (h *SlackHandler) handleAddUser(ctx context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
+func (h *SlackHandler) handleAddUser(_ context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
 		return h.createErrorResponse("Please mention the user: `/rotation add @user`")
 	}
@@ -165,7 +168,7 @@ func (h *SlackHandler) handleAddUser(ctx context.Context, cmd *slackcmd.Command,
 	}
 }
 
-func (h *SlackHandler) handleRemoveUser(ctx context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
+func (h *SlackHandler) handleRemoveUser(_ context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
 		return h.createErrorResponse("Please mention the user: `/rotation remove @user`")
 	}
@@ -212,7 +215,7 @@ func (h *SlackHandler) handleRemoveUser(ctx context.Context, cmd *slackcmd.Comma
 	}
 }
 
-func (h *SlackHandler) handleListUsers(ctx context.Context, slashCmd *slack.SlashCommand) *slack.Msg {
+func (h *SlackHandler) handleListUsers(_ context.Context, slashCmd *slack.SlashCommand) *slack.Msg {
 	// Get channel with feedback
 	channel, feedback, err := h.setupChannelWithFeedback(slashCmd)
 	if err != nil {
@@ -232,10 +235,25 @@ func (h *SlackHandler) handleListUsers(ctx context.Context, slashCmd *slack.Slas
 		}
 	}
 
+	// Get current presenter to highlight them
+	currentPresenter, _ := h.rotationService.GetCurrentPresenter(channel.ID)
+
+	// Get scheduler to know the role name
+	scheduler, _ := h.rotationService.GetSchedulerConfig(channel.ID)
+	role := domain.DefaultRole
+	if scheduler != nil && scheduler.Role != "" {
+		role = scheduler.Role
+	}
+
 	var userList strings.Builder
 	userList.WriteString(feedback + "*Members in rotation:*\n")
 	for i, user := range users {
-		userList.WriteString(fmt.Sprintf("%d. %s\n", i+1, user.GetDisplayName()))
+		if currentPresenter != nil && user.ID == currentPresenter.ID {
+			// Highlight current presenter with arrow and role
+			userList.WriteString(fmt.Sprintf("👉 %d. %s *(%s today)*\n", i+1, user.GetDisplayName(), role))
+		} else {
+			userList.WriteString(fmt.Sprintf("%d. %s\n", i+1, user.GetDisplayName()))
+		}
 	}
 
 	return &slack.Msg{
@@ -269,7 +287,7 @@ func (h *SlackHandler) handleNext(ctx context.Context, slashCmd *slack.SlashComm
 	}
 }
 
-func (h *SlackHandler) handleConfig(ctx context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
+func (h *SlackHandler) handleConfig(_ context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
 		return h.createErrorResponse("Use: `/rotation config time HH:MM` or `/rotation config days 1,2,4,5`")
 	}
@@ -516,7 +534,7 @@ func (h *SlackHandler) handleStatus(slashCmd *slack.SlashCommand) *slack.Msg {
 			}
 		}
 		statusText += fmt.Sprintf("📅 *Active Days:* %s\n", strings.Join(activeDaysNames, ", "))
-		
+
 		// Role
 		statusText += fmt.Sprintf("🎭 *Role:* %s\n", scheduler.Role)
 	} else {
@@ -529,7 +547,7 @@ func (h *SlackHandler) handleStatus(slashCmd *slack.SlashCommand) *slack.Msg {
 	statusText += fmt.Sprintf("👥 *Total Members:* %d\n", len(users))
 
 	// Use role from scheduler or default
-	role := "On duty"
+	role := domain.DefaultRole
 	if scheduler != nil && scheduler.Role != "" {
 		role = scheduler.Role
 	}
@@ -589,5 +607,8 @@ func (h *SlackHandler) setupChannelWithFeedback(slashCmd *slack.SlashCommand) (*
 func (h *SlackHandler) respondWithError(w http.ResponseWriter, message string) {
 	response := h.createErrorResponse(message)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Printf("ERROR encoding json response: %v", err)
+	}
 }

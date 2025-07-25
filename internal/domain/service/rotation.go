@@ -60,7 +60,7 @@ func (s *rotationService) SetupChannel(slackChannelID, slackChannelName, slackTe
 		NotificationTime: "09:00",
 		ActiveDays:       domain.DefaultActiveDays, // Monday-Friday in ISO format
 		IsEnabled:        true,
-		Role:             "On duty", // Default role
+		Role:             domain.DefaultRole, // Default role
 	}
 
 	if err := s.dm.Scheduler().Create(scheduler); err != nil {
@@ -210,7 +210,7 @@ func (s *rotationService) UpdateChannelConfig(channelID int64, configType, value
 			NotificationTime: "09:00",
 			ActiveDays:       domain.DefaultActiveDays,
 			IsEnabled:        true,
-			Role:             "On duty", // Default role
+			Role:             domain.DefaultRole, // Default role
 		}
 		if err := s.dm.Scheduler().Create(scheduler); err != nil {
 			return fmt.Errorf("failed to create scheduler config: %w", err)

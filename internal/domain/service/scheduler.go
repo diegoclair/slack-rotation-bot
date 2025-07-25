@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/diegoclair/slack-rotation-bot/internal/domain"
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/contract"
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/entity"
 	"github.com/slack-go/slack"
@@ -266,7 +267,7 @@ func (s *scheduler) sendNotificationToChannel(channelID int64) error {
 	}
 
 	// Default role if no scheduler config
-	role := "On duty"
+	role := domain.DefaultRole
 	if schedulerConfig != nil && schedulerConfig.Role != "" {
 		role = schedulerConfig.Role
 	}

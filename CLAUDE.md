@@ -15,15 +15,23 @@ go mod download
 
 # Run the application locally
 go run cmd/bot/main.go
+# or using Makefile
+make run
 
 # Build the application
 go build -o slack-rotation-bot cmd/bot/main.go
+# or using Makefile
+make build
 
-# Run tests (note: no tests currently exist)
-go test ./...
+# Run all tests with coverage
+go test -v -cover ./...
+# or using Makefile
+make tests
 
-# Run tests with coverage
-go test -cover ./...
+# Run specific test suites using Makefile
+make test-db       # Test database layer
+make test-service  # Test service layer  
+make test-handler  # Test HTTP handlers
 
 # Format code
 go fmt ./...
@@ -34,9 +42,9 @@ golangci-lint run
 # Update dependencies
 go mod tidy
 
-# Run specific package tests
-go test ./internal/rotation
-go test ./internal/database
+# Generate mocks for testing
+make mocks         # Generates all mocks (requires mockgen)
+make install-mockgen  # Install mockgen if needed
 
 # Build for production
 CGO_ENABLED=1 go build -ldflags="-s -w" -o slack-rotation-bot cmd/bot/main.go
@@ -106,6 +114,14 @@ slack-rotation-bot/
 - `robfig/cron/v3`: Cron scheduler for daily notifications  
 - `mattn/go-sqlite3`: SQLite driver (requires CGO)
 - `joho/godotenv`: Environment file loading
+- `go.uber.org/mock`: Mock generation for testing
+
+### Testing Strategy
+- **Mock Generation**: Uses `mockgen` to generate mocks from interfaces in `contract/`
+- **Test Utils**: Database test utilities in `internal/database/testutil.go` for in-memory SQLite
+- **Handler Tests**: HTTP handler tests with mock Slack client in `internal/handlers/test/`
+- **Service Tests**: Business logic tests with mocked repositories
+- **Test Pattern**: Table-driven tests with clear test cases and assertions
 
 ## Available Commands
 
@@ -137,32 +153,7 @@ slack-rotation-bot/
   - Provides guidance to customize: "Use `/rotation config show` to view or `/rotation config` to customize"
 - **ISO Days**: Uses numbers 1-7 instead of language-specific abbreviations for universal compatibility
 
-## Recent Optimizations (Completed)
-
-### Database Architecture Overhaul
-- ✅ **Removed `rotations` table** - Eliminated infinite growth problem
-- ✅ **Added `last_presenter` boolean flag** - Simple rotation tracking
-- ✅ **Hard delete users** - No soft delete complexity
-- ✅ **Zero database growth** - Only active users + 1 presenter flag per channel
-
-### Internationalization
-- ✅ **ISO 8601 days format** - Uses numbers 1-7 instead of language-specific abbreviations
-- ✅ **English responses** - All commands, errors, and logs in English
-- ✅ **Universal compatibility** - Works across different locales
-
-### Code Simplification
-- ✅ **Removed unused commands** - Eliminated `setup`, `who`, `history`, `purge`
-- ✅ **Simplified rotation logic** - Clean algorithm using boolean flag
-- ✅ **Repository cleanup** - Removed `rotation_repo.go`
-
-### UX Improvements
-- ✅ **Auto-configuration feedback** - Users see clear notification when channel is auto-configured
-- ✅ **Default days fixed** - Auto-setup now includes Wednesday (Monday-Friday complete)
-- ✅ **Guidance messages** - Users guided on how to customize after auto-setup
-- ✅ **ISO 8601 storage** - ActiveDays stored as `[1,2,3,4,5]` instead of string names
-- ✅ **Type safety** - `ActiveDays []int` with proper JSON conversion in repository layer
-
-## TODO: Critical Issues
+## Known Issues & TODOs
 
 ### Timezone Management
 **CRITICAL**: Timezone handling is currently broken and needs immediate attention.
@@ -180,8 +171,3 @@ slack-rotation-bot/
 3. **Proper time handling**: Convert all time operations to use channel timezone
 4. **Scheduler fixes**: Ensure cron jobs respect timezone when sending notifications
 
-### Missing Features
-- **Status command**: Show current rotation status and settings
-- **Pause/Resume**: Temporarily disable notifications
-- **Config show**: Display current channel configuration
-- **Scheduler Implementation**: Daily notification cron job not implemented yet

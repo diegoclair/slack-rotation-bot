@@ -35,3 +35,6 @@ var WeekdayNumbers = map[string]int{
 
 // DefaultActiveDays represents Monday through Friday in ISO format
 var DefaultActiveDays = []int{Monday, Tuesday, Wednesday, Thursday, Friday}
+
+// DefaultRole is the default role name when none is configured
+const DefaultRole = "On duty"
