@@ -18,16 +18,16 @@ import (
 )
 
 type SlackHandler struct {
-	slackClient     *slack.Client
-	services *service.Instance
-	signingSecret   string
+	slackClient   *slack.Client
+	services      *service.Instance
+	signingSecret string
 }
 
 func New(slackClient *slack.Client, services *service.Instance, signingSecret string) *SlackHandler {
 	return &SlackHandler{
-		slackClient:     slackClient,
-		services: services,
-		signingSecret:   signingSecret,
+		slackClient:   slackClient,
+		services:      services,
+		signingSecret: signingSecret,
 	}
 }
 
@@ -68,7 +68,7 @@ func (h *SlackHandler) HandleSlashCommand(w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	
+
 	log.Printf("Received command: %s %s from user: %s in channel: %s", s.Command, s.Text, s.UserID, s.ChannelID)
 	log.Printf("DEBUG Slash Command data - TeamID: %s, ResponseURL: %s, TriggerID: %s", s.TeamID, s.ResponseURL, s.TriggerID)
 
@@ -81,7 +81,7 @@ func (h *SlackHandler) HandleSlashCommand(w http.ResponseWriter, r *http.Request
 
 	// Handle command
 	response := h.handleCommand(r.Context(), cmd, &s)
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -111,7 +111,6 @@ func (h *SlackHandler) handleCommand(ctx context.Context, cmd *slackcmd.Command,
 	}
 }
 
-
 func (h *SlackHandler) handleAddUser(ctx context.Context, cmd *slackcmd.Command, slashCmd *slack.SlashCommand) *slack.Msg {
 	if len(cmd.Args) == 0 {
 		return h.createErrorResponse("Please mention the user: `/rotation add @user`")
@@ -120,16 +119,16 @@ func (h *SlackHandler) handleAddUser(ctx context.Context, cmd *slackcmd.Command,
 	// Extract user ID from mention <@U12345> or <@U12345|username>
 	userMention := cmd.Args[0]
 	log.Printf("DEBUG: Raw user mention: %s", userMention)
-	
+
 	userID := strings.TrimSpace(userMention)
 	userID = strings.TrimPrefix(userID, "<@")
 	userID = strings.TrimSuffix(userID, ">")
-	
+
 	// Handle format <@U12345|username> - take only the ID part
 	if idx := strings.Index(userID, "|"); idx != -1 {
 		userID = userID[:idx]
 	}
-	
+
 	log.Printf("DEBUG: Extracted user ID: %s", userID)
 
 	// Get channel with feedback
@@ -176,7 +175,7 @@ func (h *SlackHandler) handleRemoveUser(ctx context.Context, cmd *slackcmd.Comma
 	userID := strings.TrimSpace(userMention)
 	userID = strings.TrimPrefix(userID, "<@")
 	userID = strings.TrimSuffix(userID, ">")
-	
+
 	// Handle format <@U12345|username> - take only the ID part
 	if idx := strings.Index(userID, "|"); idx != -1 {
 		userID = userID[:idx]
@@ -245,7 +244,6 @@ func (h *SlackHandler) handleListUsers(ctx context.Context, slashCmd *slack.Slas
 	}
 }
 
-
 func (h *SlackHandler) handleNext(ctx context.Context, slashCmd *slack.SlashCommand) *slack.Msg {
 	// Get channel with feedback
 	channel, feedback, err := h.setupChannelWithFeedback(slashCmd)
@@ -289,9 +287,26 @@ func (h *SlackHandler) handleConfig(ctx context.Context, cmd *slackcmd.Command, 
 			return h.createErrorResponse(fmt.Sprintf("Error getting configuration: %v", err))
 		}
 
+		// Get scheduler configuration
+		scheduler, err := h.services.Rotation.GetSchedulerConfig(channel.ID)
+		if err != nil {
+			return h.createErrorResponse(fmt.Sprintf("Error getting scheduler configuration: %v", err))
+		}
+
+		// Default values if scheduler doesn't exist
+		notificationTime := "09:00"
+		activeDays := domain.DefaultActiveDays
+		isEnabled := true
+
+		if scheduler != nil {
+			notificationTime = scheduler.NotificationTime
+			activeDays = scheduler.ActiveDays
+			isEnabled = scheduler.IsEnabled
+		}
+
 		// Convert active days from ISO numbers to names for display
 		var activeDaysNames []string
-		for _, dayNum := range config.ActiveDays {
+		for _, dayNum := range activeDays {
 			if dayName, ok := domain.WeekdayNames[dayNum]; ok {
 				activeDaysNames = append(activeDaysNames, dayName)
 			}
@@ -300,15 +315,22 @@ func (h *SlackHandler) handleConfig(ctx context.Context, cmd *slackcmd.Command, 
 		configText := feedback + fmt.Sprintf("📋 *Current Configuration for #%s*\n\n"+
 			"⏰ *Notification Time:* %s\n"+
 			"📅 *Active Days:* %s\n"+
-			"🔔 *Channel Status:* %s",
+			"🔔 *Channel Status:* %s\n"+
+			"📅 *Scheduler Status:* %s",
 			config.SlackChannelName,
-			config.NotificationTime,
+			notificationTime,
 			strings.Join(activeDaysNames, ", "),
 			func() string {
 				if config.IsActive {
 					return "Active"
 				}
 				return "Inactive"
+			}(),
+			func() string {
+				if isEnabled {
+					return "Enabled"
+				}
+				return "Disabled"
 			}(),
 		)
 
@@ -342,22 +364,196 @@ func (h *SlackHandler) handleConfig(ctx context.Context, cmd *slackcmd.Command, 
 	}
 }
 
-
 func (h *SlackHandler) handlePause(slashCmd *slack.SlashCommand) *slack.Msg {
-	// TODO: Implement pause
-	return h.createErrorResponse("Feature under development")
+	// Get channel with feedback
+	channel, feedback, err := h.setupChannelWithFeedback(slashCmd)
+	if err != nil {
+		return h.createErrorResponse("Error checking channel")
+	}
+
+	// Check if scheduler exists
+	scheduler, err := h.services.Rotation.GetSchedulerConfig(channel.ID)
+	if err != nil {
+		return h.createErrorResponse(fmt.Sprintf("Error getting scheduler configuration: %v", err))
+	}
+
+	if scheduler == nil {
+		// Create default scheduler config if it doesn't exist
+		err = h.services.Rotation.UpdateChannelConfig(channel.ID, "time", "09:00")
+		if err != nil {
+			return h.createErrorResponse(fmt.Sprintf("Error creating scheduler configuration: %v", err))
+		}
+		scheduler, _ = h.services.Rotation.GetSchedulerConfig(channel.ID)
+	}
+
+	// Check if already paused
+	if scheduler != nil && !scheduler.IsEnabled {
+		return &slack.Msg{
+			ResponseType: slack.ResponseTypeEphemeral,
+			Text:         feedback + "⏸️ Notifications are already paused for this channel.",
+		}
+	}
+
+	// Pause scheduler
+	err = h.services.Rotation.PauseScheduler(channel.ID)
+	if err != nil {
+		return h.createErrorResponse(fmt.Sprintf("Error pausing scheduler: %v", err))
+	}
+
+	return &slack.Msg{
+		ResponseType: slack.ResponseTypeEphemeral,
+		Text:         feedback + "⏸️ Daily rotation notifications have been paused. Use `/rotation resume` to re-enable them.",
+	}
 }
 
 func (h *SlackHandler) handleResume(slashCmd *slack.SlashCommand) *slack.Msg {
-	// TODO: Implement resume
-	return h.createErrorResponse("Feature under development")
+	// Get channel with feedback
+	channel, feedback, err := h.setupChannelWithFeedback(slashCmd)
+	if err != nil {
+		return h.createErrorResponse("Error checking channel")
+	}
+
+	// Check if scheduler exists
+	scheduler, err := h.services.Rotation.GetSchedulerConfig(channel.ID)
+	if err != nil {
+		return h.createErrorResponse(fmt.Sprintf("Error getting scheduler configuration: %v", err))
+	}
+
+	if scheduler == nil {
+		// Create default scheduler config if it doesn't exist
+		err = h.services.Rotation.UpdateChannelConfig(channel.ID, "time", "09:00")
+		if err != nil {
+			return h.createErrorResponse(fmt.Sprintf("Error creating scheduler configuration: %v", err))
+		}
+		scheduler, _ = h.services.Rotation.GetSchedulerConfig(channel.ID)
+	}
+
+	// Check if already enabled
+	if scheduler != nil && scheduler.IsEnabled {
+		return &slack.Msg{
+			ResponseType: slack.ResponseTypeEphemeral,
+			Text:         feedback + "▶️ Notifications are already enabled for this channel.",
+		}
+	}
+
+	// Resume scheduler
+	err = h.services.Rotation.ResumeScheduler(channel.ID)
+	if err != nil {
+		return h.createErrorResponse(fmt.Sprintf("Error resuming scheduler: %v", err))
+	}
+
+	return &slack.Msg{
+		ResponseType: slack.ResponseTypeEphemeral,
+		Text:         feedback + "▶️ Daily rotation notifications have been resumed.",
+	}
 }
 
 func (h *SlackHandler) handleStatus(slashCmd *slack.SlashCommand) *slack.Msg {
-	// TODO: Implement status
-	return h.createErrorResponse("Feature under development")
-}
+	// Get channel with feedback
+	channel, feedback, err := h.setupChannelWithFeedback(slashCmd)
+	if err != nil {
+		return h.createErrorResponse("Error checking channel")
+	}
 
+	// Get channel configuration
+	config, err := h.services.Rotation.GetChannelConfig(channel.ID)
+	if err != nil {
+		return h.createErrorResponse(fmt.Sprintf("Error getting configuration: %v", err))
+	}
+
+	// Get scheduler configuration
+	scheduler, err := h.services.Rotation.GetSchedulerConfig(channel.ID)
+	if err != nil {
+		return h.createErrorResponse(fmt.Sprintf("Error getting scheduler configuration: %v", err))
+	}
+
+	// Get current presenter
+	currentPresenter, err := h.services.Rotation.GetCurrentPresenter(channel.ID)
+	if err != nil && err.Error() != "user not found" {
+		return h.createErrorResponse(fmt.Sprintf("Error getting current presenter: %v", err))
+	}
+
+	// Get next presenter
+	nextPresenter, err := h.services.Rotation.GetNextPresenter(channel.ID)
+	if err != nil && err.Error() != "no active users in rotation" {
+		return h.createErrorResponse(fmt.Sprintf("Error getting next presenter: %v", err))
+	}
+
+	// Get total users
+	users, err := h.services.Rotation.ListUsers(channel.ID)
+	if err != nil {
+		return h.createErrorResponse(fmt.Sprintf("Error getting users: %v", err))
+	}
+
+	// Build status message
+	statusText := feedback + fmt.Sprintf("📊 *Rotation Status for #%s*\n\n", config.SlackChannelName)
+
+	// Channel status
+	statusText += fmt.Sprintf("🔔 *Channel Status:* %s\n", func() string {
+		if config.IsActive {
+			return "Active"
+		}
+		return "Inactive"
+	}())
+
+	// Scheduler status
+	if scheduler != nil {
+		statusText += fmt.Sprintf("📅 *Scheduler Status:* %s\n", func() string {
+			if scheduler.IsEnabled {
+				return "Enabled ✅"
+			}
+			return "Paused ⏸️"
+		}())
+
+		// Notification time
+		statusText += fmt.Sprintf("⏰ *Notification Time:* %s UTC\n", scheduler.NotificationTime)
+
+		// Active days
+		var activeDaysNames []string
+		for _, dayNum := range scheduler.ActiveDays {
+			if dayName, ok := domain.WeekdayNames[dayNum]; ok {
+				activeDaysNames = append(activeDaysNames, dayName)
+			}
+		}
+		statusText += fmt.Sprintf("📅 *Active Days:* %s\n", strings.Join(activeDaysNames, ", "))
+		
+		// Role
+		statusText += fmt.Sprintf("🎭 *Role:* %s\n", scheduler.Role)
+	} else {
+		statusText += "📅 *Scheduler:* Not configured\n"
+	}
+
+	statusText += "\n"
+
+	// Rotation info
+	statusText += fmt.Sprintf("👥 *Total Members:* %d\n", len(users))
+
+	// Use role from scheduler or default
+	role := "On duty"
+	if scheduler != nil && scheduler.Role != "" {
+		role = scheduler.Role
+	}
+
+	if currentPresenter != nil {
+		statusText += fmt.Sprintf("🎯 *Current %s:* <@%s>\n", role, currentPresenter.SlackUserID)
+	} else {
+		statusText += fmt.Sprintf("🎯 *Current %s:* None\n", role)
+	}
+
+	if nextPresenter != nil {
+		statusText += fmt.Sprintf("⏭️ *Next %s:* <@%s>\n", role, nextPresenter.SlackUserID)
+	} else {
+		statusText += fmt.Sprintf("⏭️ *Next %s:* None\n", role)
+	}
+
+	// Add help text
+	statusText += "\n💡 Use `/rotation help` to see all available commands."
+
+	return &slack.Msg{
+		ResponseType: slack.ResponseTypeEphemeral,
+		Text:         statusText,
+	}
+}
 
 func (h *SlackHandler) handleHelp() *slack.Msg {
 	return &slack.Msg{
@@ -379,14 +575,14 @@ func (h *SlackHandler) setupChannelWithFeedback(slashCmd *slack.SlashCommand) (*
 	if err != nil {
 		return nil, "", err
 	}
-	
+
 	var feedback string
 	if wasCreated {
 		feedback = "✅ *Channel configured automatically with default settings:*\n" +
 			"⏰ Time: 09:00 | 📅 Days: Mon, Tue, Wed, Thu, Fri\n" +
 			"Use `/rotation config show` to view or `/rotation config` to customize.\n\n"
 	}
-	
+
 	return channel, feedback, nil
 }
 

@@ -7,8 +7,8 @@ import (
 
 	"github.com/diegoclair/slack-rotation-bot/internal/config"
 	"github.com/diegoclair/slack-rotation-bot/internal/database"
-	"github.com/diegoclair/slack-rotation-bot/internal/handlers"
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/service"
+	"github.com/diegoclair/slack-rotation-bot/internal/handlers"
 	"github.com/diegoclair/slack-rotation-bot/migrator/sqlite"
 	"github.com/joho/godotenv"
 	"github.com/slack-go/slack"

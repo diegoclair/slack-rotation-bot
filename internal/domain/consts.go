@@ -14,7 +14,7 @@ const (
 // WeekdayNames maps ISO 8601 weekday numbers to their English names
 var WeekdayNames = map[int]string{
 	Monday:    "Monday",
-	Tuesday:   "Tuesday", 
+	Tuesday:   "Tuesday",
 	Wednesday: "Wednesday",
 	Thursday:  "Thursday",
 	Friday:    "Friday",

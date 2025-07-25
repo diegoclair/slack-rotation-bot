@@ -11,6 +11,7 @@ type DataManager interface {
 	WithTransaction(ctx context.Context, fn func(dm DataManager) error) error
 	Channel() ChannelRepo
 	User() UserRepo
+	Scheduler() SchedulerRepo
 }
 
 // ChannelRepo defines the contract for channel repository
@@ -31,4 +32,14 @@ type UserRepo interface {
 	ClearLastPresenter(channelID int64) error
 	SetLastPresenter(userID int64) error
 	GetLastPresenter(channelID int64) (*entity.User, error)
+}
+
+// SchedulerRepo defines the contract for scheduler repository
+type SchedulerRepo interface {
+	Create(scheduler *entity.Scheduler) error
+	GetByChannelID(channelID int64) (*entity.Scheduler, error)
+	Update(scheduler *entity.Scheduler) error
+	Delete(channelID int64) error
+	GetEnabled() ([]*entity.Scheduler, error)
+	SetEnabled(channelID int64, enabled bool) error
 }

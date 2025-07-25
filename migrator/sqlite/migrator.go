@@ -13,6 +13,6 @@ var SqlFiles embed.FS
 
 func Migrate(db *sql.DB) error {
 	migrator := sqlmigrator.New(db, darwin.SqliteDialect{})
-	
+
 	return migrator.Migrate(SqlFiles, "sql")
 }

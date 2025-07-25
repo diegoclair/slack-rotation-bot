@@ -17,13 +17,19 @@ import (
 type rotationService struct {
 	dm          contract.DataManager
 	slackClient *slack.Client
+	scheduler   *scheduler
 }
 
 func newRotation(dm contract.DataManager, slackClient *slack.Client) *rotationService {
 	return &rotationService{
 		dm:          dm,
 		slackClient: slackClient,
+		scheduler:   nil, // Will be set later to avoid circular dependency
 	}
+}
+
+func (s *rotationService) SetScheduler(scheduler *scheduler) {
+	s.scheduler = scheduler
 }
 
 func (s *rotationService) SetupChannel(slackChannelID, slackChannelName, slackTeamID string) (*entity.Channel, bool, error) {
@@ -42,13 +48,29 @@ func (s *rotationService) SetupChannel(slackChannelID, slackChannelName, slackTe
 		SlackChannelID:   slackChannelID,
 		SlackChannelName: slackChannelName,
 		SlackTeamID:      slackTeamID,
-		NotificationTime: "09:00",
-		ActiveDays:       domain.DefaultActiveDays, // Monday-Friday in ISO format
 		IsActive:         true,
 	}
 
 	if err := s.dm.Channel().Create(channel); err != nil {
 		return nil, false, fmt.Errorf("failed to create channel: %w", err)
+	}
+
+	// Create default scheduler config
+	scheduler := &entity.Scheduler{
+		ChannelID:        channel.ID,
+		NotificationTime: "09:00",
+		ActiveDays:       domain.DefaultActiveDays, // Monday-Friday in ISO format
+		IsEnabled:        true,
+		Role:             "On duty", // Default role
+	}
+
+	if err := s.dm.Scheduler().Create(scheduler); err != nil {
+		return nil, false, fmt.Errorf("failed to create scheduler config: %w", err)
+	}
+
+	// Notify scheduler of new channel
+	if s.scheduler != nil {
+		s.scheduler.NotifyConfigChange()
 	}
 
 	return channel, true, nil // Channel was auto-created
@@ -176,13 +198,24 @@ func (s *rotationService) GetCurrentPresenter(channelID int64) (*entity.User, er
 }
 
 func (s *rotationService) UpdateChannelConfig(channelID int64, configType, value string) error {
-	channel, err := s.dm.Channel().GetByID(channelID)
+	// Get or create scheduler config
+	scheduler, err := s.dm.Scheduler().GetByChannelID(channelID)
 	if err != nil {
-		return fmt.Errorf("failed to get channel: %w", err)
+		return fmt.Errorf("failed to get scheduler config: %w", err)
 	}
 
-	if channel == nil {
-		return fmt.Errorf("channel not found")
+	if scheduler == nil {
+		// Create default scheduler config if it doesn't exist
+		scheduler = &entity.Scheduler{
+			ChannelID:        channelID,
+			NotificationTime: "09:00",
+			ActiveDays:       domain.DefaultActiveDays,
+			IsEnabled:        true,
+			Role:             "On duty", // Default role
+		}
+		if err := s.dm.Scheduler().Create(scheduler); err != nil {
+			return fmt.Errorf("failed to create scheduler config: %w", err)
+		}
 	}
 
 	switch configType {
@@ -191,19 +224,48 @@ func (s *rotationService) UpdateChannelConfig(channelID int64, configType, value
 		if _, err := time.Parse("15:04", value); err != nil {
 			return fmt.Errorf("invalid time format. Use HH:MM (24-hour format). Example: 09:30")
 		}
-		channel.NotificationTime = value
+		scheduler.NotificationTime = value
 	case "days":
 		// Parse days
 		days := parseDays(value)
 		if len(days) == 0 {
 			return fmt.Errorf("invalid days. Use numbers 1-7 (1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun). Example: 1,2,4,5")
 		}
-		channel.ActiveDays = days
+		scheduler.ActiveDays = days
+	case "role":
+		// Set custom role name
+		cleanValue := strings.TrimSpace(value)
+		if cleanValue == "" {
+			return fmt.Errorf("role cannot be empty. Example: presenter, reviewer, facilitator")
+		}
+		
+		// Remove surrounding quotes if present (both single and double)
+		if (strings.HasPrefix(cleanValue, `"`) && strings.HasSuffix(cleanValue, `"`)) ||
+		   (strings.HasPrefix(cleanValue, `'`) && strings.HasSuffix(cleanValue, `'`)) {
+			cleanValue = cleanValue[1 : len(cleanValue)-1]
+		}
+		
+		// Trim again after removing quotes
+		cleanValue = strings.TrimSpace(cleanValue)
+		if cleanValue == "" {
+			return fmt.Errorf("role cannot be empty. Example: presenter, reviewer, facilitator")
+		}
+		
+		scheduler.Role = cleanValue
 	default:
-		return fmt.Errorf("invalid configuration type. Use 'time' or 'days'")
+		return fmt.Errorf("invalid configuration type. Use 'time', 'days', or 'role'")
 	}
 
-	return s.dm.Channel().Update(channel)
+	if err := s.dm.Scheduler().Update(scheduler); err != nil {
+		return err
+	}
+
+	// Notify scheduler of configuration change
+	if s.scheduler != nil {
+		s.scheduler.NotifyConfigChange()
+	}
+
+	return nil
 }
 
 func (s *rotationService) GetChannelConfig(channelID int64) (*entity.Channel, error) {
@@ -219,6 +281,38 @@ func (s *rotationService) GetChannelConfig(channelID int64) (*entity.Channel, er
 	// ActiveDays is automatically loaded by the repository from JSON
 
 	return channel, nil
+}
+
+func (s *rotationService) GetSchedulerConfig(channelID int64) (*entity.Scheduler, error) {
+	return s.dm.Scheduler().GetByChannelID(channelID)
+}
+
+func (s *rotationService) PauseScheduler(channelID int64) error {
+	err := s.dm.Scheduler().SetEnabled(channelID, false)
+	if err != nil {
+		return fmt.Errorf("failed to pause scheduler: %w", err)
+	}
+
+	// Notify scheduler of configuration change
+	if s.scheduler != nil {
+		s.scheduler.NotifyConfigChange()
+	}
+
+	return nil
+}
+
+func (s *rotationService) ResumeScheduler(channelID int64) error {
+	err := s.dm.Scheduler().SetEnabled(channelID, true)
+	if err != nil {
+		return fmt.Errorf("failed to resume scheduler: %w", err)
+	}
+
+	// Notify scheduler of configuration change
+	if s.scheduler != nil {
+		s.scheduler.NotifyConfigChange()
+	}
+
+	return nil
 }
 
 func parseDays(input string) []int {

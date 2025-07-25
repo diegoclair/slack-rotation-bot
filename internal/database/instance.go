@@ -9,9 +9,10 @@ import (
 
 // instance implements DataManager interface
 type instance struct {
-	db          *DB
-	channelRepo contract.ChannelRepo
-	userRepo    contract.UserRepo
+	db            *DB
+	channelRepo   contract.ChannelRepo
+	userRepo      contract.UserRepo
+	schedulerRepo contract.SchedulerRepo
 }
 
 // NewInstance creates a new database instance with all repositories
@@ -27,13 +28,15 @@ func NewInstance(db *DB) contract.DataManager {
 func (i *instance) repoInstances() {
 	i.channelRepo = newChannelRepository(i.db.conn)
 	i.userRepo = newUserRepository(i.db.conn)
+	i.schedulerRepo = newSchedulerRepository(i.db.conn)
 }
 
 // repoInstancesWithConn creates repository instances with custom dbConn
 func repoInstancesWithConn(db dbConn) *instance {
 	return &instance{
-		channelRepo: newChannelRepository(db),
-		userRepo:    newUserRepository(db),
+		channelRepo:   newChannelRepository(db),
+		userRepo:      newUserRepository(db),
+		schedulerRepo: newSchedulerRepository(db),
 	}
 }
 
@@ -45,6 +48,11 @@ func (i *instance) Channel() contract.ChannelRepo {
 // User returns the user repository
 func (i *instance) User() contract.UserRepo {
 	return i.userRepo
+}
+
+// Scheduler returns the scheduler repository
+func (i *instance) Scheduler() contract.SchedulerRepo {
+	return i.schedulerRepo
 }
 
 // WithTransaction executes a function within a database transaction

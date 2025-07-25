@@ -82,7 +82,8 @@ slack-rotation-bot/
 4. **Multi-tenant**: Each Slack channel has independent config and users
 
 ### Core Data Models
-- **Channel**: Slack channel config (notification time, active days, team ID)
+- **Channel**: Slack channel basic info (team ID, channel name)
+- **Scheduler**: Per-channel config (notification time, active days, role name, enabled/disabled)
 - **User**: Channel-scoped users with Slack user info, active status, and last_presenter flag
 
 ### Database Design
@@ -112,6 +113,7 @@ slack-rotation-bot/
 - `/rotation config time HH:MM` - Set notification time (24-hour format, e.g., 09:30)
 - `/rotation config days 1,2,4,5` - Set active days using ISO 8601 standard:
   - 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday
+- `/rotation config role NAME` - Set role name (e.g., presenter, reviewer, "Code reviewer") - quotes auto-removed
 - `/rotation config show` - Show current channel settings
 
 ### Member Management
@@ -120,10 +122,10 @@ slack-rotation-bot/
 - `/rotation list` - List all active members in rotation order
 
 ### Rotation Control
-- `/rotation next` - Skip to next presenter and record change
-- `/rotation pause` - Pause automatic notifications (TODO: not implemented)
-- `/rotation resume` - Resume automatic notifications (TODO: not implemented)
-- `/rotation status` - Show current bot status and settings (TODO: not implemented)
+- `/rotation next` - Skip to next person and record change
+- `/rotation pause` - Pause automatic notifications
+- `/rotation resume` - Resume automatic notifications  
+- `/rotation status` - Show current bot status and settings
 - `/rotation help` - Show all available commands
 
 ### Important Notes

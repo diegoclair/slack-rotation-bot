@@ -12,9 +12,13 @@ type Instance struct {
 
 func NewInstance(dm contract.DataManager, slackClient *slack.Client) *Instance {
 	rotationService := newRotation(dm, slackClient)
+	schedulerService := newScheduler(dm, slackClient)
+
+	// Connect services to avoid circular dependency
+	rotationService.SetScheduler(schedulerService)
 
 	return &Instance{
 		Rotation:  rotationService,
-		Scheduler: newScheduler(rotationService),
+		Scheduler: schedulerService,
 	}
 }
