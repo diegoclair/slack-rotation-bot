@@ -111,10 +111,11 @@ slack-rotation-bot/
 
 ### Key Dependencies
 - `slack-go/slack`: Official Slack API client
-- `robfig/cron/v3`: Cron scheduler for daily notifications  
+- `diegoclair/sqlmigrator`: Database migration management with embedded SQL files
 - `mattn/go-sqlite3`: SQLite driver (requires CGO)
 - `joho/godotenv`: Environment file loading
 - `go.uber.org/mock`: Mock generation for testing
+- `GuiaBolso/darwin`: Legacy migration support (transitioning to sqlmigrator)
 
 ### Testing Strategy
 - **Mock Generation**: Uses `mockgen` to generate mocks from interfaces in `contract/`
@@ -170,4 +171,10 @@ slack-rotation-bot/
 2. **Parse user timezone**: Use Slack API to get user's timezone 
 3. **Proper time handling**: Convert all time operations to use channel timezone
 4. **Scheduler fixes**: Ensure cron jobs respect timezone when sending notifications
+
+### Important Development Notes
+- **CGO Requirement**: SQLite driver requires CGO_ENABLED=1 for builds
+- **Production Builds**: Use `CGO_ENABLED=1 go build -ldflags="-s -w"` for optimized binaries
+- **Mock Regeneration**: Run `make mocks` after changing interfaces in `contract/` directory
+- **Migration Files**: Use `000001_name.sql` format in `migrator/sqlite/` - migrations auto-run on startup
 
