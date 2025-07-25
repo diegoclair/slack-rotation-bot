@@ -90,10 +90,20 @@ Ready to eliminate rotation confusion in your team? Here's how to get started:
 
 > 💡 **For developers**: See [DEVELOPMENT.md](DEVELOPMENT.md) for technical setup, architecture details, and local development instructions.
 
-### Step 1: Download and Deploy
-1. Download the latest release from [GitHub Releases](https://github.com/diegoclair/slack-rotation-bot/releases)
-2. Deploy to your server (Docker, cloud service, or run directly)
-3. Ensure the bot is accessible via HTTPS (required by Slack)
+Choose the installation method that best fits your organization:
+
+### Option A: Download Binary (Easiest)
+1. Go to [GitHub Releases](https://github.com/diegoclair/slack-rotation-bot/releases)
+2. Download the latest binary for your platform (Linux, macOS, Windows)
+3. Deploy to your server and ensure it's accessible via HTTPS (required by Slack)
+
+### Option B: Fork and Build (Recommended for Companies)
+1. **Fork** this repository to your organization's GitHub account
+2. **Clone** your fork: `git clone https://github.com/YOUR-ORG/slack-rotation-bot`
+3. **Build** from source: `go build -o slack-rotation-bot cmd/bot/main.go`
+4. **Deploy** to your infrastructure with full control and customizations
+
+> 💡 **For developers**: See [DEVELOPMENT.md](DEVELOPMENT.md) for detailed build instructions, local development setup, and contribution guidelines.
 
 ### Step 2: Create Slack App
 1. **Access**: [api.slack.com/apps](https://api.slack.com/apps)

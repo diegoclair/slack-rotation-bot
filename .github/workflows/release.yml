@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24.5'
+
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build binaries
+        run: |
+          # Build for Linux (amd64)
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-s -w" -o slack-rotation-bot-linux-amd64 cmd/bot/main.go
+          
+          # Build for Linux (arm64)
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=1 go build -ldflags="-s -w" -o slack-rotation-bot-linux-arm64 cmd/bot/main.go
+          
+          # Build for macOS (amd64)
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-s -w" -o slack-rotation-bot-darwin-amd64 cmd/bot/main.go
+          
+          # Build for macOS (arm64 - Apple Silicon)
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -ldflags="-s -w" -o slack-rotation-bot-darwin-arm64 cmd/bot/main.go
+          
+          # Build for Windows (amd64)
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="-s -w" -o slack-rotation-bot-windows-amd64.exe cmd/bot/main.go
+
+      - name: Create checksums
+        run: |
+          sha256sum slack-rotation-bot-* > checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Slack Rotation Bot ${{ steps.version.outputs.VERSION }}
+            
+            ### 📥 Installation
+            
+            **Option A: Download Binary**
+            1. Download the appropriate binary for your platform below
+            2. Make it executable: `chmod +x slack-rotation-bot-*`
+            3. Deploy to your server
+            
+            **Option B: Fork and Build**
+            1. Fork this repository to your organization
+            2. Build from source following the [DEVELOPMENT.md](https://github.com/diegoclair/slack-rotation-bot/blob/main/DEVELOPMENT.md) guide
+            
+            ### 🖥️ Platform Support
+            - `linux-amd64`: Linux on Intel/AMD processors
+            - `linux-arm64`: Linux on ARM processors (e.g., AWS Graviton)
+            - `darwin-amd64`: macOS on Intel processors
+            - `darwin-arm64`: macOS on Apple Silicon (M1/M2/M3)
+            - `windows-amd64`: Windows on Intel/AMD processors
+            
+            ### 🔐 Security
+            - Verify downloads using the provided `checksums.txt`
+            - All binaries are built with `-ldflags="-s -w"` for optimized size
+            
+            ### 📖 Documentation
+            - [README.md](https://github.com/diegoclair/slack-rotation-bot/blob/main/README.md) - Setup and usage guide
+            - [DEVELOPMENT.md](https://github.com/diegoclair/slack-rotation-bot/blob/main/DEVELOPMENT.md) - Technical documentation
+            
+            ### 🚀 Quick Start
+            ```bash
+            # Linux/macOS
+            wget https://github.com/diegoclair/slack-rotation-bot/releases/download/${{ steps.version.outputs.VERSION }}/slack-rotation-bot-linux-amd64
+            chmod +x slack-rotation-bot-linux-amd64
+            ./slack-rotation-bot-linux-amd64
+            ```
+            
+            Full changelog: https://github.com/diegoclair/slack-rotation-bot/compare/v1.0.0...${{ steps.version.outputs.VERSION }}
+          files: |
+            slack-rotation-bot-linux-amd64
+            slack-rotation-bot-linux-arm64
+            slack-rotation-bot-darwin-amd64
+            slack-rotation-bot-darwin-arm64
+            slack-rotation-bot-windows-amd64.exe
+            checksums.txt
+          draft: false
+          prerelease: false
