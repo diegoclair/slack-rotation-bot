@@ -77,10 +77,13 @@ jobs:
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
       - name: Move binaries to root
         run: |
-          find . -name "slack-rotation-bot-*" -type f -exec mv {} . \;
+          # Move all binaries from artifact subdirectories to root
+          find artifacts -name "slack-rotation-bot-*" -type f -exec mv {} . \;
 
       - name: Create checksums
         run: |
