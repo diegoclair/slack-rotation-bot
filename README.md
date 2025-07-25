@@ -38,7 +38,7 @@ Bot to manage people rotation in different Slack teams/channels. Useful for dail
 > 💡 **Configuration Details**:
 > - **`time`**: Set the notification time in 24-hour format (HH:MM). This is when the bot will send rotation reminders on active days.
 > - **`days`**: Configure which days of the week are active using ISO 8601 numbers (1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday). Use comma-separated values for multiple days.
-> - **`role`**: Customize the role name used in notifications. The bot automatically adds "today" after the role name. Examples: `presenter` → "presenter today", `reviewer` → "reviewer today", `Code reviewer` → "Code reviewer today" (quotes optional for multi-word roles). Default is "On duty".
+> - **`role`**: Customize the role name used in notifications. The bot automatically adds "today" after the role name. Examples: `presenter` → "presenter today", `reviewer` → "reviewer today", `Code reviewer` → "Code reviewer today" (quotes optional for multi-word roles). Default is "On duty" → "On duty today".
 > - **`show`**: Display current channel configuration including notification time, active days, role, and channel status.
 
 ### Rotation

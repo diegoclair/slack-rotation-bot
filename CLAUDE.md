@@ -113,7 +113,7 @@ slack-rotation-bot/
 - `/rotation config time HH:MM` - Set notification time (24-hour format, e.g., 09:30)
 - `/rotation config days 1,2,4,5` - Set active days using ISO 8601 standard:
   - 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday
-- `/rotation config role NAME` - Set role name (e.g., presenter → "presenter today", "Code reviewer" → "Code reviewer today") - quotes auto-removed
+- `/rotation config role NAME` - Set role name (e.g., presenter → "presenter today", "Code reviewer" → "Code reviewer today") - default: "On duty" → "On duty today"
 - `/rotation config show` - Show current channel settings
 
 ### Member Management

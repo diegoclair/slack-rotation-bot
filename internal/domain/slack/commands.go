@@ -76,7 +76,7 @@ func GetHelpText() string {
 *Configuration:*
 • ` + "`/rotation config time HH:MM`" + ` - Set notification time (ex: 09:30)
 • ` + "`/rotation config days 1,2,4,5`" + ` - Set active days (1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 7=Sun)
-• ` + "`/rotation config role NAME`" + ` - Set role name (ex: presenter → "presenter today", "Code reviewer" → "Code reviewer today")
+• ` + "`/rotation config role NAME`" + ` - Set role name (ex: presenter → "presenter today") - default: "On duty today"
 • ` + "`/rotation config show`" + ` - Show current settings
 
 *Manage Members:*
