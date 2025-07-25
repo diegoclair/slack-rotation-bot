@@ -10,15 +10,15 @@ import (
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/entity"
 )
 
-type schedulerRepository struct {
+type schedulerRepo struct {
 	db dbConn
 }
 
-func newSchedulerRepository(db dbConn) contract.SchedulerRepo {
-	return &schedulerRepository{db: db}
+func newSchedulerRepo(db dbConn) contract.SchedulerRepo {
+	return &schedulerRepo{db: db}
 }
 
-func (r *schedulerRepository) Create(scheduler *entity.Scheduler) error {
+func (r *schedulerRepo) Create(scheduler *entity.Scheduler) error {
 	query := `
 		INSERT INTO scheduler_configs (channel_id, notification_time, active_days, is_enabled, role)
 		VALUES (?, ?, ?, ?, ?)
@@ -50,7 +50,7 @@ func (r *schedulerRepository) Create(scheduler *entity.Scheduler) error {
 	return nil
 }
 
-func (r *schedulerRepository) GetByChannelID(channelID int64) (*entity.Scheduler, error) {
+func (r *schedulerRepo) GetByChannelID(channelID int64) (*entity.Scheduler, error) {
 	scheduler := &entity.Scheduler{}
 	query := `
 		SELECT id, channel_id, notification_time, active_days, is_enabled, role, created_at, updated_at
@@ -84,7 +84,7 @@ func (r *schedulerRepository) GetByChannelID(channelID int64) (*entity.Scheduler
 	return scheduler, nil
 }
 
-func (r *schedulerRepository) Update(scheduler *entity.Scheduler) error {
+func (r *schedulerRepo) Update(scheduler *entity.Scheduler) error {
 	query := `
 		UPDATE scheduler_configs SET
 			notification_time = ?,
@@ -116,7 +116,7 @@ func (r *schedulerRepository) Update(scheduler *entity.Scheduler) error {
 	return nil
 }
 
-func (r *schedulerRepository) Delete(channelID int64) error {
+func (r *schedulerRepo) Delete(channelID int64) error {
 	query := `DELETE FROM scheduler_configs WHERE channel_id = ?`
 
 	_, err := r.db.Exec(query, channelID)
@@ -127,7 +127,7 @@ func (r *schedulerRepository) Delete(channelID int64) error {
 	return nil
 }
 
-func (r *schedulerRepository) GetEnabled() ([]*entity.Scheduler, error) {
+func (r *schedulerRepo) GetEnabled() ([]*entity.Scheduler, error) {
 	query := `
 		SELECT id, channel_id, notification_time, active_days, is_enabled, role, created_at, updated_at
 		FROM scheduler_configs
@@ -168,7 +168,7 @@ func (r *schedulerRepository) GetEnabled() ([]*entity.Scheduler, error) {
 	return schedulers, nil
 }
 
-func (r *schedulerRepository) SetEnabled(channelID int64, enabled bool) error {
+func (r *schedulerRepo) SetEnabled(channelID int64, enabled bool) error {
 	query := `
 		UPDATE scheduler_configs SET
 			is_enabled = ?,

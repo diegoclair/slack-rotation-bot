@@ -2,7 +2,6 @@ package service
 
 import (
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/contract"
-	"github.com/slack-go/slack"
 )
 
 type Instance struct {
@@ -10,7 +9,7 @@ type Instance struct {
 	Scheduler *scheduler
 }
 
-func NewInstance(dm contract.DataManager, slackClient *slack.Client) *Instance {
+func NewInstance(dm contract.DataManager, slackClient contract.SlackClient) *Instance {
 	rotationService := newRotation(dm, slackClient)
 	schedulerService := newScheduler(dm, slackClient)
 

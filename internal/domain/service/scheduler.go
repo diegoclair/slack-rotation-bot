@@ -21,13 +21,13 @@ type NotificationEvent struct {
 
 type scheduler struct {
 	dm            contract.DataManager
-	slackClient   *slack.Client
+	slackClient   contract.SlackClient
 	configChanged chan struct{}
 	stopChan      chan struct{}
 	running       bool
 }
 
-func newScheduler(dm contract.DataManager, slackClient *slack.Client) *scheduler {
+func newScheduler(dm contract.DataManager, slackClient contract.SlackClient) *scheduler {
 	return &scheduler{
 		dm:            dm,
 		slackClient:   slackClient,

@@ -8,15 +8,15 @@ import (
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/entity"
 )
 
-type userRepository struct {
+type userRepo struct {
 	db dbConn
 }
 
-func newUserRepository(db dbConn) contract.UserRepo {
-	return &userRepository{db: db}
+func newUserRepo(db dbConn) contract.UserRepo {
+	return &userRepo{db: db}
 }
 
-func (r *userRepository) Create(user *entity.User) error {
+func (r *userRepo) Create(user *entity.User) error {
 	query := `
 		INSERT INTO users (channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter)
 		VALUES (?, ?, ?, ?, ?, ?)
@@ -43,7 +43,7 @@ func (r *userRepository) Create(user *entity.User) error {
 	return nil
 }
 
-func (r *userRepository) GetByChannelAndSlackID(channelID int64, slackUserID string) (*entity.User, error) {
+func (r *userRepo) GetByChannelAndSlackID(channelID int64, slackUserID string) (*entity.User, error) {
 	user := &entity.User{}
 	query := `
 		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter, joined_at
@@ -71,7 +71,7 @@ func (r *userRepository) GetByChannelAndSlackID(channelID int64, slackUserID str
 	return user, nil
 }
 
-func (r *userRepository) GetActiveUsersByChannel(channelID int64) ([]*entity.User, error) {
+func (r *userRepo) GetActiveUsersByChannel(channelID int64) ([]*entity.User, error) {
 	query := `
 		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter, joined_at
 		FROM users
@@ -107,7 +107,7 @@ func (r *userRepository) GetActiveUsersByChannel(channelID int64) ([]*entity.Use
 	return users, nil
 }
 
-func (r *userRepository) Delete(userID int64) error {
+func (r *userRepo) Delete(userID int64) error {
 	query := `DELETE FROM users WHERE id = ?`
 
 	_, err := r.db.Exec(query, userID)
@@ -118,7 +118,7 @@ func (r *userRepository) Delete(userID int64) error {
 	return nil
 }
 
-func (r *userRepository) ClearLastPresenter(channelID int64) error {
+func (r *userRepo) ClearLastPresenter(channelID int64) error {
 	query := `UPDATE users SET last_presenter = 0 WHERE channel_id = ?`
 	_, err := r.db.Exec(query, channelID)
 	if err != nil {
@@ -127,7 +127,7 @@ func (r *userRepository) ClearLastPresenter(channelID int64) error {
 	return nil
 }
 
-func (r *userRepository) SetLastPresenter(userID int64) error {
+func (r *userRepo) SetLastPresenter(userID int64) error {
 	query := `UPDATE users SET last_presenter = 1 WHERE id = ?`
 	_, err := r.db.Exec(query, userID)
 	if err != nil {
@@ -136,7 +136,7 @@ func (r *userRepository) SetLastPresenter(userID int64) error {
 	return nil
 }
 
-func (r *userRepository) GetLastPresenter(channelID int64) (*entity.User, error) {
+func (r *userRepo) GetLastPresenter(channelID int64) (*entity.User, error) {
 	user := &entity.User{}
 	query := `
 		SELECT id, channel_id, slack_user_id, slack_user_name, display_name, is_active, last_presenter, joined_at

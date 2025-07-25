@@ -11,16 +11,15 @@ import (
 	"github.com/diegoclair/slack-rotation-bot/internal/domain"
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/contract"
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/entity"
-	"github.com/slack-go/slack"
 )
 
 type rotationService struct {
 	dm          contract.DataManager
-	slackClient *slack.Client
+	slackClient contract.SlackClient
 	scheduler   *scheduler
 }
 
-func newRotation(dm contract.DataManager, slackClient *slack.Client) *rotationService {
+func newRotation(dm contract.DataManager, slackClient contract.SlackClient) *rotationService {
 	return &rotationService{
 		dm:          dm,
 		slackClient: slackClient,
@@ -238,7 +237,7 @@ func (s *rotationService) UpdateChannelConfig(channelID int64, configType, value
 		if cleanValue == "" {
 			return fmt.Errorf("role cannot be empty. Example: presenter, reviewer, facilitator")
 		}
-		
+
 		scheduler.Role = cleanValue
 	default:
 		return fmt.Errorf("invalid configuration type. Use 'time', 'days', or 'role'")
@@ -331,7 +330,7 @@ func (s *rotationService) GetChannelStatus(channelID int) (*entity.Channel, erro
 func cleanRoleName(input string) string {
 	// Trim whitespace
 	cleaned := strings.TrimSpace(input)
-	
+
 	// Remove common problematic patterns first
 	// Remove patterns like = "text", = 'text', etc.
 	if strings.Contains(cleaned, "=") {
@@ -341,41 +340,41 @@ func cleanRoleName(input string) string {
 			cleaned = strings.TrimSpace(parts[1])
 		}
 	}
-	
+
 	// Remove surrounding quotes (single or double) - multiple passes
 	for i := 0; i < 3; i++ { // Multiple passes to handle nested quotes
 		cleaned = strings.TrimSpace(cleaned)
 		if len(cleaned) >= 2 {
 			if (strings.HasPrefix(cleaned, `"`) && strings.HasSuffix(cleaned, `"`)) ||
-			   (strings.HasPrefix(cleaned, `'`) && strings.HasSuffix(cleaned, `'`)) {
+				(strings.HasPrefix(cleaned, `'`) && strings.HasSuffix(cleaned, `'`)) {
 				cleaned = cleaned[1 : len(cleaned)-1]
 			}
 		}
 	}
-	
+
 	// Remove problematic Unicode characters
 	replacements := map[string]string{
-		"\u201C": "",   // Left double quotation mark - remove completely
-		"\u201D": "",   // Right double quotation mark - remove completely
-		"\u2018": "",   // Left single quotation mark - remove completely
-		"\u2019": "",   // Right single quotation mark - remove completely
-		"\u2013": "-",  // En dash
-		"\u2014": "-",  // Em dash
+		"\u201C": "",    // Left double quotation mark - remove completely
+		"\u201D": "",    // Right double quotation mark - remove completely
+		"\u2018": "",    // Left single quotation mark - remove completely
+		"\u2019": "",    // Right single quotation mark - remove completely
+		"\u2013": "-",   // En dash
+		"\u2014": "-",   // Em dash
 		"\u2026": "...", // Horizontal ellipsis
-		"\u00AB": "",   // Left-pointing double angle quotation mark - remove
-		"\u00BB": "",   // Right-pointing double angle quotation mark - remove
+		"\u00AB": "",    // Left-pointing double angle quotation mark - remove
+		"\u00BB": "",    // Right-pointing double angle quotation mark - remove
 	}
-	
+
 	for old, new := range replacements {
 		cleaned = strings.ReplaceAll(cleaned, old, new)
 	}
-	
+
 	// Final cleanup - trim and collapse multiple spaces
 	cleaned = strings.TrimSpace(cleaned)
 	// Replace multiple spaces with single space
 	for strings.Contains(cleaned, "  ") {
 		cleaned = strings.ReplaceAll(cleaned, "  ", " ")
 	}
-	
+
 	return cleaned
 }

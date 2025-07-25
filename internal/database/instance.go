@@ -26,17 +26,17 @@ func NewInstance(db *DB) contract.DataManager {
 
 // repoInstances initializes all repositories
 func (i *instance) repoInstances() {
-	i.channelRepo = newChannelRepository(i.db.conn)
-	i.userRepo = newUserRepository(i.db.conn)
-	i.schedulerRepo = newSchedulerRepository(i.db.conn)
+	i.channelRepo = newChannelRepo(i.db.conn)
+	i.userRepo = newUserRepo(i.db.conn)
+	i.schedulerRepo = newSchedulerRepo(i.db.conn)
 }
 
 // repoInstancesWithConn creates repository instances with custom dbConn
 func repoInstancesWithConn(db dbConn) *instance {
 	return &instance{
-		channelRepo:   newChannelRepository(db),
-		userRepo:      newUserRepository(db),
-		schedulerRepo: newSchedulerRepository(db),
+		channelRepo:   newChannelRepo(db),
+		userRepo:      newUserRepo(db),
+		schedulerRepo: newSchedulerRepo(db),
 	}
 }
 

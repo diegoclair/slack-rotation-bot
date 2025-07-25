@@ -41,7 +41,7 @@ func main() {
 	serviceInstance.Scheduler.Start()
 	defer serviceInstance.Scheduler.Stop()
 
-	handler := handlers.New(slackClient, serviceInstance, cfg.SlackSigningSecret)
+	handler := handlers.New(slackClient, serviceInstance.Rotation, cfg.SlackSigningSecret)
 
 	http.HandleFunc("/slack/commands", handler.HandleSlashCommand)
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

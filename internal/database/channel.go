@@ -9,15 +9,15 @@ import (
 	"github.com/diegoclair/slack-rotation-bot/internal/domain/entity"
 )
 
-type channelRepository struct {
+type channelRepo struct {
 	db dbConn
 }
 
-func newChannelRepository(db dbConn) contract.ChannelRepo {
-	return &channelRepository{db: db}
+func newChannelRepo(db dbConn) contract.ChannelRepo {
+	return &channelRepo{db: db}
 }
 
-func (r *channelRepository) Create(channel *entity.Channel) error {
+func (r *channelRepo) Create(channel *entity.Channel) error {
 	query := `
 		INSERT INTO channels (slack_channel_id, slack_channel_name, slack_team_id, is_active)
 		VALUES (?, ?, ?, ?)
@@ -42,7 +42,7 @@ func (r *channelRepository) Create(channel *entity.Channel) error {
 	return nil
 }
 
-func (r *channelRepository) GetBySlackID(slackChannelID string) (*entity.Channel, error) {
+func (r *channelRepo) GetBySlackID(slackChannelID string) (*entity.Channel, error) {
 	channel := &entity.Channel{}
 	query := `
 		SELECT id, slack_channel_id, slack_channel_name, slack_team_id,
@@ -70,7 +70,7 @@ func (r *channelRepository) GetBySlackID(slackChannelID string) (*entity.Channel
 	return channel, nil
 }
 
-func (r *channelRepository) GetByID(id int64) (*entity.Channel, error) {
+func (r *channelRepo) GetByID(id int64) (*entity.Channel, error) {
 	channel := &entity.Channel{}
 	query := `
 		SELECT id, slack_channel_id, slack_channel_name, slack_team_id,
@@ -98,7 +98,7 @@ func (r *channelRepository) GetByID(id int64) (*entity.Channel, error) {
 	return channel, nil
 }
 
-func (r *channelRepository) Update(channel *entity.Channel) error {
+func (r *channelRepo) Update(channel *entity.Channel) error {
 	query := `
 		UPDATE channels SET
 			slack_channel_name = ?,
@@ -120,7 +120,7 @@ func (r *channelRepository) Update(channel *entity.Channel) error {
 	return nil
 }
 
-func (r *channelRepository) GetActiveChannels() ([]*entity.Channel, error) {
+func (r *channelRepo) GetActiveChannels() ([]*entity.Channel, error) {
 	query := `
 		SELECT id, slack_channel_id, slack_channel_name, slack_team_id,
 			is_active, created_at, updated_at
